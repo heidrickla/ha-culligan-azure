@@ -1,0 +1,12 @@
+{
+  "domain": "culligan_azure",
+  "name": "Culligan (Azure)",
+  "codeowners": ["@heidrickla"],
+  "config_flow": true,
+  "documentation": "https://github.com/heidrickla/ha-culligan-azure",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/heidrickla/ha-culligan-azure/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

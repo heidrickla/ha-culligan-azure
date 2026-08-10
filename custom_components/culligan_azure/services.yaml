@@ -1,0 +1,39 @@
+bypass_timed:
+  name: Bypass for a duration
+  description: >-
+    Bypass the softener for a fixed number of minutes, after which it returns to
+    softening automatically. While bypassed the house receives UNSOFTENED water.
+  fields:
+    serial_number:
+      name: Serial number
+      description: Device serial, e.g. GBX1-0000AA000W000000000
+      required: true
+      selector:
+        text:
+    duration:
+      name: Duration
+      description: >-
+        Minutes. The app offers 30, 60, 90, 120 or 180; other values are
+        accepted by the API but unverified on hardware.
+      required: true
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+
+set_clock:
+  name: Sync controller clock
+  description: >-
+    Set the valve controller's clock to Home Assistant's current local time.
+    The controller keeps its own clock, separate from the wifi module's
+    NTP-synced one, and nothing syncs it automatically. The change is not
+    visible until the device next powers up.
+  fields:
+    serial_number:
+      name: Serial number
+      description: Device serial, e.g. GBX1-0000AA000W000000000
+      required: true
+      selector:
+        text:

@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Local Claude orientation doc - keep out of the repo
+CLAUDE.md
+
+# Local hardware-test credentials - never commit
+.test_credentials.env
+
+# Contact sheets from brand/generate.py review mode
+brand/preview/

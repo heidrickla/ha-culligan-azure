@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Culligan account",
+        "description": "Sign in with the same account you use in the Culligan Connect app.",
+        "data": { "email": "Email", "password": "Password" }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter password",
+        "description": "Culligan rejected the stored credentials.",
+        "data": { "password": "Password" }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Could not reach the Culligan API.",
+      "no_devices": "Sign-in worked but no devices are registered to this account."
+    },
+    "abort": { "already_configured": "This account is already set up." }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": { "scan_interval": "Polling interval (seconds)" },
+        "description": "How often to poll the Culligan cloud. A softener changes state slowly; short intervals add load to an undocumented API for no benefit."
+      }
+    }
+  }
+}
