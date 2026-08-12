@@ -8,7 +8,14 @@ home-assistant/brands submission is needed (that repo stopped accepting
 custom-integration PRs in Feb 2026). On older HA versions the folder is simply
 inert.
 
-This directory holds only the tooling. The art is **original**: a stylized front
+`icon.png` and `icon@2x.png` are also copied here at the repository root.
+HACS's publishing requirements ask for "a `brand` directory in your repository
+with at least an `icon.png` file", and the wording does not say whether that
+means the repo root or the integration directory. The integration copy is the
+one Home Assistant's Brands Proxy serves; this copy exists so the HACS
+requirement is unambiguously met either way. Regenerate both together.
+
+This directory otherwise holds only the tooling. The art is **original**: a stylized front
 view of a cabinet-style water softener — the tall brine cabinet with its valve
 head, control display and a water-drop motif — drawn programmatically by
 [generate.py](generate.py) (Pillow only, rendered at 4x and downsampled).

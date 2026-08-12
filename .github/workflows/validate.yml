@@ -2,6 +2,12 @@ name: Validate
 
 on:
   workflow_dispatch:
+  # Daily, because two of the three gates answer a question whose ANSWER MOVES
+  # WITHOUT THIS REPO CHANGING: hassfest and the HACS action both validate
+  # against Home Assistant's current requirements, which get stricter over
+  # time. A purely push-triggered run answers "was this valid when we last
+  # edited it", not "is it valid today" -- and for an integration nobody is
+  # actively developing, those diverge quietly until someone tries to install it.
   schedule:
     - cron: "0 0 * * *"
   push:
@@ -11,7 +17,16 @@ on:
     branches:
       - main
 
+# Least privilege: nothing here writes to the repo, publishes, or comments on a
+# PR, so no token scope is needed at all.
 permissions: {}
+
+# A push that supersedes an in-flight run makes that run's answer irrelevant.
+# Cancelling frees the runner and stops a stale red/green arriving after a newer
+# one. Keyed on ref so main and each PR are independent.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   hassfest: # https://developers.home-assistant.io/blog/2020/04/16/hassfest
@@ -53,3 +68,83 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check custom_components
+
+  # NEW 2026-08-11. The repo had 253 lines of tests that NOTHING executed --
+  # tests/test_health.py and tests/test_resin.py were written, committed, and
+  # then never run by any pipeline. A regression test nobody runs is
+  # documentation, not a gate: it cannot fail, so it cannot protect anything.
+  #
+  # Both were verified passing against the tree before this job was added, so
+  # this gate starts GREEN. A gate that arrives red is a gate people learn to
+  # click past.
+  tests:
+    name: Unit tests and secret guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          # Pinned rather than "3.x" for the same reason ruff is pinned: a
+          # runner-side default bump should not be able to change what CI means.
+          python-version: "3.13"
+
+      # These are standalone scripts with their own check() helper, NOT pytest
+      # test functions -- `pytest tests/` would collect zero of them and report
+      # success, which is how a suite this size stays invisible. They exit
+      # non-zero on failure, so running them directly is the honest invocation.
+      #
+      # The glob is deliberate: a new tests/test_*.py is covered on the day it
+      # lands rather than whenever somebody remembers to add a step. The
+      # "found none" branch matters just as much -- if these are ever renamed or
+      # converted to pytest, this fails loudly instead of passing vacuously.
+      #
+      # Failures ACCUMULATE. Stopping at the first would hide the rest, and
+      # knowing that two modules regressed is worth more than knowing one did.
+      - name: Unit tests
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          found=0
+          failed=""
+          for t in tests/test_*.py; do
+            found=1
+            echo "::group::$t"
+            if python "$t"; then
+              echo "PASS $t"
+            else
+              echo "::error file=$t::unit tests failed"
+              failed="$failed $t"
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$found" = "0" ]; then
+            echo "::error::no tests/test_*.py found -- were they renamed or moved to pytest?"
+            exit 1
+          fi
+          [ -z "$failed" ] || { echo "::error::failing suites:$failed"; exit 1; }
+
+      # Folded into this job rather than given its own: it is a two-second
+      # `git ls-files | grep`, and a separate job would spend a whole billable
+      # minute on VM boot and checkout to run it.
+      #
+      # Deliberately narrow. It proves the material that must never be committed
+      # is absent -- not that the repo is free of anything sensitive, which no
+      # grep can show. Markdown is excluded because documentation legitimately
+      # quotes key-shaped examples, and a guard that cries wolf is one people
+      # learn to ignore. Verified clean against the tree before being added.
+      - name: No private keys or env files committed
+        run: |
+          set -euo pipefail
+          bad=0
+          keyfiles=$(git ls-files | grep -iE '(^|/)\.env$|\.pem$|\.p12$|\.pfx$|(^|/)id_(rsa|ed25519)$' || true)
+          if [ -n "$keyfiles" ]; then
+            echo "::error::a key or .env file is tracked in git"; echo "$keyfiles"; bad=1
+          fi
+          hits=$(git grep -lIE 'BEGIN (RSA|EC|OPENSSH|PGP|DSA) PRIVATE KEY' -- . ':!*.md' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::a private key block is committed"; echo "$hits"; bad=1
+          fi
+          exit $bad
