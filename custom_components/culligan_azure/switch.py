@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .discovery import async_add_new_devices
 from .entity import CulliganEntity
+from .health import as_number
 
 # One coordinator polls; entities do no I/O of their own.
 PARALLEL_UPDATES = 0
@@ -36,8 +37,7 @@ async def async_setup_entry(
 class CulliganAwayModeSwitch(CulliganEntity, SwitchEntity):
     """Vacation / away mode. Verified: awayMode.set {"active": 0|1}."""
 
-    _attr_name = "Away mode"
-    _attr_icon = "mdi:bag-suitcase"
+    _attr_translation_key = "away_mode"
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
         super().__init__(coordinator, serial)
@@ -45,7 +45,7 @@ class CulliganAwayModeSwitch(CulliganEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool | None:
-        v = self.datapoints.get("away_mode")
+        v = as_number(self.datapoints, "away_mode")
         return None if v is None else bool(v)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
@@ -72,8 +72,7 @@ class CulliganBypassSwitch(CulliganEntity, SwitchEntity):
     WARNING: while bypassed the house receives UNSOFTENED water.
     """
 
-    _attr_name = "Bypass"
-    _attr_icon = "mdi:water-off"
+    _attr_translation_key = "bypass"
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
         super().__init__(coordinator, serial)

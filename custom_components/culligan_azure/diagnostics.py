@@ -25,13 +25,16 @@ async def async_get_config_entry_diagnostics(
         "last_update_success": coordinator.last_update_success,
         "device_count": len(devices),
         # Serials identify the customer's hardware, so devices are reported by
-        # position with their property names rather than their identity.
+        # position. The names listed are the DEVICE's telemetry datapoints -
+        # the coordinator wrapper keys would say nothing about the hardware.
         "devices": [
             {
                 "index": i,
-                "properties": sorted(props) if isinstance(props, dict) else [],
-                "property_count": len(props) if isinstance(props, dict) else 0,
+                "connected": entry_data.get("connected"),
+                "datapoints": sorted(entry_data.get("datapoints") or {}),
+                "datapoint_count": len(entry_data.get("datapoints") or {}),
+                "health": async_redact_data(entry_data.get("health") or {}, REDACT),
             }
-            for i, props in enumerate(devices.values())
+            for i, entry_data in enumerate(devices.values())
         ],
     }

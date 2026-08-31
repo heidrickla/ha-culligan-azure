@@ -13,9 +13,15 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfTime, UnitOfVolume
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfTime,
+    UnitOfVolume,
+    UnitOfVolumeFlowRate,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .discovery import async_add_new_devices
@@ -36,16 +42,10 @@ def _dp(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
     return lambda dp, _h: dp.get(key)
 
 
-def _hl(
-    key: str, ndigits: int | None = None
-) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
-    def _get(_dp: dict[str, Any], h: dict[str, Any]) -> Any:
-        v = h.get(key)
-        if ndigits is not None and isinstance(v, (int, float)):
-            return round(v, ndigits)
-        return v
-
-    return _get
+def _hl(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
+    """Fetch a derived health value. Display rounding is the description's
+    suggested_display_precision; the recorded state keeps full precision."""
+    return lambda _dp, h: h.get(key)
 
 
 def _parse_dt(value: Any) -> datetime.datetime | None:
@@ -59,11 +59,13 @@ def _parse_dt(value: Any) -> datetime.datetime | None:
         return None
     try:
         # The device emits no timezone at all, so %z is impossible here.
-        # Parsed naive, then stamped UTC on the next line.
         naive = datetime.datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         return None
-    return naive.replace(tzinfo=datetime.UTC)
+    # The controller keeps local wall-clock time (async_set_datetime writes
+    # local time back to it), so stamp the household timezone. Stamping UTC
+    # shifted every timestamp sensor by the UTC offset.
+    return naive.replace(tzinfo=dt_util.get_default_time_zone())
 
 
 def _dp_dt(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
@@ -75,7 +77,8 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     CulliganSensorDescription(
         key="current_flow_rate",
         translation_key="current_flow_rate",
-        native_unit_of_measurement="gal/min",
+        native_unit_of_measurement=UnitOfVolumeFlowRate.GALLONS_PER_MINUTE,
+        device_class=SensorDeviceClass.VOLUME_FLOW_RATE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("current_flow_rate"),
     ),
@@ -167,22 +170,25 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="actual_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_hl("actual_days_between_regens", 2),
+        suggested_display_precision=2,
+        value_fn=_hl("actual_days_between_regens"),
     ),
     CulliganSensorDescription(
         key="expected_regen_interval",
         translation_key="expected_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_hl("expected_days_between_regens", 2),
+        suggested_display_precision=2,
+        value_fn=_hl("expected_days_between_regens"),
     ),
     CulliganSensorDescription(
         key="regen_efficiency",
         translation_key="regen_efficiency",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda _dp, h: (
-            round(h["regen_efficiency_ratio"] * 100, 1)
+            h["regen_efficiency_ratio"] * 100
             if isinstance(h.get("regen_efficiency_ratio"), (int, float))
             else None
         ),
@@ -200,7 +206,8 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="excess_regens_per_year",
         translation_key="excess_regens_per_year",
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_hl("excess_regens_per_year", 0),
+        suggested_display_precision=0,
+        value_fn=_hl("excess_regens_per_year"),
         attrs_fn=lambda _dp, h: {
             "note": (
                 "Regenerations beyond what capacity and usage imply. Multiply "
@@ -267,8 +274,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="resin_cycle_age",
         native_unit_of_measurement="years",
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda _dp, h: (
-            round(h["resin_cycle_age_years"], 1)
+            h["resin_cycle_age_years"]
             if isinstance(h.get("resin_cycle_age_years"), (int, float))
             else None
         ),

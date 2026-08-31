@@ -7,6 +7,10 @@
         "data": {
           "email": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "email": "The email address of your Culligan Connect app account.",
+          "password": "The password for that account."
         }
       },
       "reauth_confirm": {
@@ -14,6 +18,9 @@
         "description": "Culligan rejected the stored credentials.",
         "data": {
           "password": "Password"
+        },
+        "data_description": {
+          "password": "The new password for the same Culligan Connect account."
         }
       },
       "reconfigure": {
@@ -22,6 +29,10 @@
         "data": {
           "email": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "email": "The email address of your Culligan Connect app account.",
+          "password": "The password for that account."
         }
       }
     },
@@ -44,7 +55,10 @@
         "data": {
           "scan_interval": "Polling interval (seconds)"
         },
-        "description": "How often to poll the Culligan cloud. A softener changes state slowly; short intervals add load to an undocumented API for no benefit."
+        "description": "How often to poll the Culligan cloud. A softener changes state slowly; short intervals add load to an undocumented API for no benefit.",
+        "data_description": {
+          "scan_interval": "How often to poll the Culligan cloud, in seconds. The default is deliberately gentle: this is an undocumented third-party API and a softener changes slowly."
+        }
       }
     }
   },
@@ -54,6 +68,12 @@
     },
     "unknown_serial": {
       "message": "No configured Culligan device with serial {serial}."
+    },
+    "command_failed": {
+      "message": "The command was not accepted: {error}"
+    },
+    "auth_failed": {
+      "message": "Culligan rejected the stored credentials ({error}); re-authentication has been started."
     }
   },
   "entity": {
@@ -164,6 +184,59 @@
       },
       "clock_wrong": {
         "name": "Controller clock wrong"
+      }
+    },
+    "switch": {
+      "away_mode": {
+        "name": "Away mode"
+      },
+      "bypass": {
+        "name": "Bypass"
+      }
+    },
+    "button": {
+      "regen_now": {
+        "name": "Regenerate now"
+      },
+      "regen_scheduled": {
+        "name": "Schedule regeneration"
+      },
+      "refresh_telemetry": {
+        "name": "Refresh telemetry"
+      },
+      "sync_clock": {
+        "name": "Sync controller clock"
+      }
+    },
+    "number": {
+      "salt_level": {
+        "name": "Salt level"
+      }
+    }
+  },
+  "services": {
+    "bypass_timed": {
+      "name": "Bypass for a duration",
+      "description": "Bypass the softener for a fixed number of minutes, after which it returns to softening automatically. While bypassed the house receives UNSOFTENED water.",
+      "fields": {
+        "serial_number": {
+          "name": "Serial number",
+          "description": "Device serial, e.g. GBX1-0000AA000W000000000"
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Minutes. The app offers 30, 60, 90, 120 or 180; other values are accepted by the API but unverified on hardware."
+        }
+      }
+    },
+    "set_clock": {
+      "name": "Sync controller clock",
+      "description": "Set the valve controller's clock to Home Assistant's current local time. The controller keeps its own clock, separate from the wifi module's NTP-synced one, and nothing syncs it automatically. The change is not visible until the device next powers up.",
+      "fields": {
+        "serial_number": {
+          "name": "Serial number",
+          "description": "Device serial, e.g. GBX1-0000AA000W000000000"
+        }
       }
     }
   }

@@ -61,13 +61,19 @@ class CulliganApiClient:
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
             ) as resp:
-                body = await resp.json(content_type=None)
+                # Status first: a proxy's 502 page is HTML, and parsing it
+                # before checking would raise JSONDecodeError past the
+                # except clause, surfacing as "unknown error" instead of
+                # cannot_connect.
                 if resp.status in (400, 401, 403):
                     raise CulliganAuthError(f"login rejected: HTTP {resp.status}")
-                if resp.status != 200 or not body.get("success"):
+                if resp.status != 200:
+                    raise CulliganError(f"login failed: HTTP {resp.status}")
+                body = await resp.json(content_type=None)
+                if not isinstance(body, dict) or not body.get("success"):
                     raise CulliganError(f"login failed: HTTP {resp.status} {body}")
                 self._token = body["data"]["accessToken"]
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, ValueError) as err:
             raise CulliganError(f"login transport error: {err}") from err
 
     async def _request(
@@ -98,12 +104,14 @@ class CulliganApiClient:
                     async with self._lock:
                         self._token = None
                     return await self._request(method, path, json_body, _retry=False)
-                body = await resp.json(content_type=None)
                 if resp.status != 200:
-                    raise CulliganError(f"{method} {path}: HTTP {resp.status} {body}")
+                    raise CulliganError(f"{method} {path}: HTTP {resp.status}")
+                body = await resp.json(content_type=None)
+                if not isinstance(body, dict):
+                    raise CulliganError(f"{method} {path}: non-object response")
                 parsed: dict[str, Any] = body
                 return parsed
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, ValueError) as err:
             raise CulliganError(f"{method} {path}: transport error: {err}") from err
 
     # -- reads ------------------------------------------------------------
