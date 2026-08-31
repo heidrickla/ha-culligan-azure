@@ -112,7 +112,7 @@ family. Match on `name(.segment){1,3}` when re-deriving this.
 | `alarm.silence` | `{"days": N}` | ⚠ accepted, **effect unobservable** — see below |
 | `awayMode.alert.clear` | `{}` | accepted, **effect unobservable** |
 | `salt.slm.set` | `{}` | untested — salt level monitor trigger |
-| `property.set` | `{"<property_name>": <value>}` | untested — generic write, Gbx2 only in the app |
+| `property.set` | `{"<property_name>": <value>}` | ⚠ **cloud accepts, device ignores** on gbx1 — see below |
 
 All param shapes above are read from `AzureDeviceCommandFactory` in the decompiled app, not guessed.
 
@@ -126,7 +126,43 @@ default-argument constructor and a null map, i.e. they genuinely send **no param
 `property.set` is only ever called by `setBypassSchedule(dsn, property, DeviceBypassSchedule)`,
 and that method lives on **`CulliganGbx2Device`** — a different model from the `gbx1` under test.
 Its property-name argument is supplied by the caller and was not resolvable statically, so the
-writable property namespace remains unknown.
+writable property namespace could not be recovered from the app.
+
+#### `property.set` — tested on gbx1, and it does nothing
+
+Tested 2026-08-28 against a real `GBX1` while chasing a stuck capacity setting.
+`total_capacity_volume_tank_1` read 0, and the obvious repair was to write it:
+
+    POST /api/v1/device/command
+    {"command": "property.set",
+     "params": {"total_capacity_volume_tank_1": 2000},
+     "protocolVersion": 1, "requestId": "CC-...", "serialNumber": "GBX1-..."}
+
+    200 -> {"success": true, "data": {"requestId": "CC-..."}}
+
+**The cloud accepted it.** That alone is worth recording — the endpoint does not
+reject `property.set` for a gbx1, nor an unrecognised property name. But the
+device never applied it. The write went out at 23:35; the datapoint still read 0
+after 25 seconds, and still read 0 when the unit regenerated at 03:12 and reset
+`capacity_remaining_tank_1` to -500 rather than the +1500 a stored 2000-gallon
+capacity would have produced. The regeneration is the part that matters: that
+reset is computed by the controller, so it is the moment a stored capacity
+figure would have had to show itself.
+
+Transport was mirrored on `set_device_time.py` byte for byte — same
+`User-Agent: okhttp/4.12.0`, same envelope, same `requestId` format — precisely
+so that this result could not be blamed on an unfamiliar client. It is the
+command being ignored, not the request being malformed.
+
+⚠ So a 200 from this endpoint is **especially** meaningless for `property.set`.
+Unlike `timeDate.set`, where a 200 preceded a change that a power cycle later
+confirmed, here a 200 precedes nothing at all. Do not build a write path on it
+without confirming the datapoint moved.
+
+The practical conclusion for this model: `total_capacity_volume_tank_1` is
+**derived, not stored**. Consistent with all four `aquasensor_z_*` datapoints
+reading 0 — on a Smart HE the Aqua-Sensor is what determines working capacity —
+the controller computes this figure and a cloud write cannot displace it.
 
 #### `timeDate.set` — verified end to end
 
