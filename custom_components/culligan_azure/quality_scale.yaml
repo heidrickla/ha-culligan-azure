@@ -5,8 +5,13 @@ rules:
   brands: done
   common-modules: done
   config-flow-test-coverage:
-    status: todo
-    comment: The config flow has no automated tests.
+    status: done
+    comment: |
+      tests/ha/test_config_flow.py covers the user step, a trimmed and
+      lowercased email, both login failures, an account with no devices, the
+      duplicate abort, reconfigure including the another_account guard, reauth
+      and the options flow. Run by the `Home Assistant layer` job of
+      .gitea/workflows/validate.yml on the self-hosted runner.
   config-flow: done
   dependency-transparency:
     status: exempt
@@ -44,10 +49,13 @@ rules:
   parallel-updates: done
   reauthentication-flow: done
   test-coverage:
-    status: todo
+    status: done
     comment: |
-      The resin-health calculations have unit tests. The API client, coordinator
-      and entity layers do not.
+      The resin-health calculations have unit tests that run on any
+      interpreter. tests/ha/ adds the Home Assistant layer: setup, the device
+      and its entities, a failing poll, rejected credentials starting reauth,
+      unload, the two services and the poll-interval option. Both suites run
+      in CI.
 
   # Gold
   devices: done
