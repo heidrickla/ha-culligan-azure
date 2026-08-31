@@ -15,8 +15,9 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .capabilities import Capability
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
-from .discovery import async_add_new_devices
+from .discovery import async_add_capability_entities
 from .entity import CulliganEntity
 from .health import as_number
 
@@ -27,6 +28,8 @@ class CulliganBinaryDescription(BinarySensorEntityDescription):
 
     value_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], bool | None]
     attrs_fn: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+    # Hardware this sensor needs. None = always created.
+    capability: Capability | None = None
 
 
 def _fault_state(flags: float | None, days: float | None) -> bool | None:
@@ -57,6 +60,17 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
         value_fn=lambda dp, _h, _e: bool(
             isinstance(dp.get("time_rem_in_position"), (int, float))
             and dp["time_rem_in_position"] > 0
+        ),
+    ),
+    CulliganBinaryDescription(
+        key="aquasensor_auto_rinse",
+        translation_key="aquasensor_auto_rinse",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        capability=Capability.AQUA_SENSOR,
+        value_fn=lambda dp, _h, _e: (
+            None
+            if (v := as_number(dp, "aquasensor_auto_rinse_enabled")) is None
+            else bool(v)
         ),
     ),
     CulliganBinaryDescription(
@@ -163,14 +177,16 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_new_devices(
-        entry,
-        coordinator,
-        async_add_entities,
-        lambda serial: (
-            CulliganBinarySensor(coordinator, serial, desc) for desc in BINARY_SENSORS
-        ),
-    )
+
+    def _build(serial: str, caps: set[str]) -> list[CulliganBinarySensor]:
+        return [
+            CulliganBinarySensor(coordinator, serial, desc)
+            for desc in BINARY_SENSORS
+            if (desc.capability.value if desc.capability else None)
+            in (caps or {None})
+        ]
+
+    async_add_capability_entities(entry, coordinator, async_add_entities, _build)
 
 
 class CulliganBinarySensor(CulliganEntity, BinarySensorEntity):

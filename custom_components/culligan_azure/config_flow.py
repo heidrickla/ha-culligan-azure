@@ -14,10 +14,18 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CulliganApiClient, CulliganAuthError, CulliganError
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, MIN_SCAN_INTERVAL
+from .capabilities import Capability
+from .const import (
+    CONF_FORCE_OFF,
+    CONF_FORCE_ON,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    MIN_SCAN_INTERVAL,
+)
 
 STEP_USER_SCHEMA = vol.Schema(
     {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}
@@ -165,7 +173,31 @@ class CulliganOptionsFlow(OptionsFlow):
                 {
                     vol.Optional(CONF_SCAN_INTERVAL, default=current): vol.All(
                         vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=3600)
-                    )
+                    ),
+                    # Detection is automatic; these are the escape hatches for
+                    # a unit it reads wrong in either direction.
+                    vol.Optional(
+                        CONF_FORCE_ON,
+                        default=self.config_entry.options.get(CONF_FORCE_ON, []),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[c.value for c in Capability],
+                            translation_key="capability",
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_FORCE_OFF,
+                        default=self.config_entry.options.get(CONF_FORCE_OFF, []),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[c.value for c in Capability],
+                            translation_key="capability",
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
                 }
             ),
         )

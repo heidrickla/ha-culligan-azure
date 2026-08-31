@@ -23,8 +23,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
+from .capabilities import Capability
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
-from .discovery import async_add_new_devices
+from .discovery import async_add_capability_entities
 from .entity import CulliganEntity
 
 GALLONS = UnitOfVolume.GALLONS
@@ -36,6 +37,8 @@ class CulliganSensorDescription(SensorEntityDescription):
 
     value_fn: Callable[[dict[str, Any], dict[str, Any]], Any]
     attrs_fn: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+    # Hardware this sensor needs. None = always created.
+    capability: Capability | None = None
 
 
 def _dp(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
@@ -111,7 +114,41 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="capacity_remaining",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
+        # Counts down from the Aqua-Sensor's derived working capacity. On a
+        # unit without the sensor that base is 0 and this reads NEGATIVE
+        # (-515 gal on the unit this was built against), so it is gated
+        # rather than shown as a confident wrong number.
+        capability=Capability.AQUA_SENSOR,
         value_fn=_dp("capacity_remaining_tank_1"),
+    ),
+    # --- Aqua-Sensor, only on units that have one ---
+    CulliganSensorDescription(
+        key="aquasensor_ratio",
+        translation_key="aquasensor_ratio",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        capability=Capability.AQUA_SENSOR,
+        suggested_display_precision=2,
+        value_fn=_dp("aquasensor_z_ratio_current_tank_1"),
+    ),
+    CulliganSensorDescription(
+        key="aquasensor_minimum",
+        translation_key="aquasensor_minimum",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        capability=Capability.AQUA_SENSOR,
+        suggested_display_precision=2,
+        value_fn=_dp("aquasensor_z_min_tank_1"),
+    ),
+    CulliganSensorDescription(
+        key="working_capacity",
+        translation_key="working_capacity",
+        native_unit_of_measurement=GALLONS,
+        state_class=SensorStateClass.MEASUREMENT,
+        # The capacity the controller derived from the sensor, which is what
+        # replaces the programmed hardness figure on an Aqua-Sensor unit.
+        capability=Capability.AQUA_SENSOR,
+        value_fn=_dp("total_capacity_volume_tank_1"),
     ),
     # --- salt ---
     CulliganSensorDescription(
@@ -378,12 +415,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_new_devices(
-        entry,
-        coordinator,
-        async_add_entities,
-        lambda serial: (CulliganSensor(coordinator, serial, desc) for desc in SENSORS),
-    )
+
+    def _build(serial: str, caps: set[str]) -> list[CulliganSensor]:
+        """Sensors for one capability group - or the ungated ones when empty."""
+        return [
+            CulliganSensor(coordinator, serial, desc)
+            for desc in SENSORS
+            if (desc.capability.value if desc.capability else None)
+            in (caps or {None})
+        ]
+
+    async_add_capability_entities(entry, coordinator, async_add_entities, _build)
 
 
 class CulliganSensor(CulliganEntity, SensorEntity):

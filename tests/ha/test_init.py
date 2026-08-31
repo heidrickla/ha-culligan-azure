@@ -142,3 +142,73 @@ async def test_changing_the_interval_reloads_the_entry(hass, config_entry):
         await hass.async_block_till_done()
 
     assert config_entry.runtime_data.update_interval.total_seconds() == 600
+
+
+async def test_aqua_sensor_entities_are_absent_on_a_unit_without_one(
+    hass, config_entry
+):
+    """The whole point: no entity for hardware that is not fitted.
+
+    DEVICE has every aquasensor_* datapoint at zero, exactly as the real unit
+    reports, so capacity_remaining (which reads -515 gal there) must not exist.
+    """
+    await _setup(hass, config_entry)
+
+    assert hass.states.get("sensor.softener_aqua_sensor_ratio") is None
+    assert hass.states.get("sensor.softener_working_capacity") is None
+    assert hass.states.get("sensor.softener_capacity_remaining") is None
+    # An ungated sensor is still there, so this is not just a failed setup.
+    assert hass.states.get("sensor.softener_water_today") is not None
+
+
+async def test_aqua_sensor_entities_appear_when_the_sensor_reports(hass, config_entry):
+    """A unit that does have one gets the entities, without a reload."""
+    device = {
+        **DEVICE,
+        "properties": {
+            **DEVICE["properties"],
+            "aquasensor_z_ratio_current_tank_1": 0.82,
+            "total_capacity_volume_tank_1": 1109,
+            "capacity_remaining_tank_1": 640,
+        },
+    }
+    config_entry.add_to_hass(hass)
+    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[device]):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.softener_aqua_sensor_ratio").state == "0.82"
+    assert hass.states.get("sensor.softener_working_capacity").state == "1109"
+    assert hass.states.get("sensor.softener_capacity_remaining").state == "640"
+
+
+async def test_a_user_can_force_a_capability_on(hass, config_entry):
+    """The escape hatch for a unit the detector reads wrong."""
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={"force_capabilities_on": ["aqua_sensor"]}
+    )
+    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[DEVICE]):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.softener_working_capacity") is not None
+
+
+async def test_a_user_can_force_a_detected_capability_off(hass, config_entry):
+    device = {
+        **DEVICE,
+        "properties": {
+            **DEVICE["properties"],
+            "aquasensor_z_ratio_current_tank_1": 0.82,
+        },
+    }
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={"force_capabilities_off": ["aqua_sensor"]}
+    )
+    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[device]):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.softener_aqua_sensor_ratio") is None

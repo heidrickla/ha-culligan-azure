@@ -36,6 +36,12 @@ class CulliganEntity(CoordinatorEntity[CulliganCoordinator]):
         return health
 
     @property
+    def capabilities(self) -> set[str]:
+        """The hardware this unit was detected to have."""
+        found: set[str] = self._entry.get("capabilities") or set()
+        return found
+
+    @property
     def available(self) -> bool:
         return super().available and self._serial in (self.coordinator.data or {})
 
