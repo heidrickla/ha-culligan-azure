@@ -13,13 +13,11 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import CulliganCoordinator
+from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .entity import CulliganEntity
 
 GALLONS = UnitOfVolume.GALLONS
@@ -33,12 +31,14 @@ class CulliganSensorDescription(SensorEntityDescription):
     attrs_fn: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
 
 
-def _dp(key: str) -> Callable[[dict, dict], Any]:
+def _dp(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
     return lambda dp, _h: dp.get(key)
 
 
-def _hl(key: str, ndigits: int | None = None) -> Callable[[dict, dict], Any]:
-    def _get(_dp: dict, h: dict) -> Any:
+def _hl(
+    key: str, ndigits: int | None = None
+) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
+    def _get(_dp: dict[str, Any], h: dict[str, Any]) -> Any:
         v = h.get(key)
         if ndigits is not None and isinstance(v, (int, float)):
             return round(v, ndigits)
@@ -59,13 +59,13 @@ def _parse_dt(value: Any) -> datetime.datetime | None:
     try:
         # The device emits no timezone at all, so %z is impossible here.
         # Parsed naive, then stamped UTC on the next line.
-        naive = datetime.datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007
+        naive = datetime.datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         return None
-    return naive.replace(tzinfo=datetime.timezone.utc)
+    return naive.replace(tzinfo=datetime.UTC)
 
 
-def _dp_dt(key: str) -> Callable[[dict, dict], Any]:
+def _dp_dt(key: str) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
     return lambda dp, _h: _parse_dt(dp.get(key))
 
 
@@ -261,7 +261,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         attrs_fn=lambda _dp, h: {
             "baseline_capacity": (h.get("resin") or {}).get("baseline_capacity"),
             "current_capacity": (h.get("resin") or {}).get("current_capacity"),
-            "note": "Percent drop in gallons treated per regeneration since tracking began.",
+            "note": (
+                "Percent drop in gallons treated per regeneration since tracking began."
+            ),
         },
     ),
     CulliganSensorDescription(
@@ -374,10 +376,16 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
 )
 
 
+# One coordinator polls; entities do no I/O of their own.
+PARALLEL_UPDATES = 0
+
+
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: CulliganConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: CulliganCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
         CulliganSensor(coordinator, serial, desc)
         for serial in coordinator.data

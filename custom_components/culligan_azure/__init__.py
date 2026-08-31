@@ -10,16 +10,17 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .api import CulliganApiClient
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .coordinator import CulliganCoordinator
+from .coordinator import CulliganConfigEntry, CulliganCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +45,17 @@ BYPASS_TIMED_SCHEMA = vol.Schema(
 SET_CLOCK_SCHEMA = vol.Schema({vol.Required("serial_number"): cv.string})
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register services at component setup.
+
+    Registered per entry they disappear while the entry is unloaded, and an
+    automation calling one then fails validation as though it were a typo.
+    """
+    _register_services(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> bool:
     """Set up from a config entry."""
     session = async_get_clientsession(hass)
     client = CulliganApiClient(
@@ -58,10 +69,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_load_history()
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    _register_services(hass)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
 
@@ -70,10 +79,22 @@ def _register_services(hass: HomeAssistant) -> None:
     """Register services once, not per config entry."""
 
     def _find_coordinator(serial: str) -> CulliganCoordinator:
-        for coord in hass.data.get(DOMAIN, {}).values():
-            if isinstance(coord, CulliganCoordinator) and serial in (coord.data or {}):
+        entries: list[CulliganConfigEntry] = hass.config_entries.async_loaded_entries(
+            DOMAIN
+        )
+        if not entries:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="not_loaded"
+            )
+        for entry in entries:
+            coord: CulliganCoordinator = entry.runtime_data
+            if serial in (coord.data or {}):
                 return coord
-        raise vol.Invalid(f"no configured Culligan device with serial {serial}")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="unknown_serial",
+            translation_placeholders={"serial": serial},
+        )
 
     async def _bypass_timed(call: ServiceCall) -> None:
         """Bypass for a fixed number of minutes.
@@ -95,26 +116,23 @@ def _register_services(hass: HomeAssistant) -> None:
             coord.client.async_set_datetime(serial, dt_util.now())
         )
 
-    if not hass.services.has_service(DOMAIN, SERVICE_BYPASS_TIMED):
-        hass.services.async_register(
-            DOMAIN, SERVICE_BYPASS_TIMED, _bypass_timed, schema=BYPASS_TIMED_SCHEMA
-        )
-    if not hass.services.has_service(DOMAIN, SERVICE_SET_CLOCK):
-        hass.services.async_register(
-            DOMAIN, SERVICE_SET_CLOCK, _set_clock, schema=SET_CLOCK_SCHEMA
-        )
+    hass.services.async_register(
+        DOMAIN, SERVICE_BYPASS_TIMED, _bypass_timed, schema=BYPASS_TIMED_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_CLOCK, _set_clock, schema=SET_CLOCK_SCHEMA
+    )
 
 
-async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def _async_reload_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-        if not hass.data[DOMAIN]:
-            hass.services.async_remove(DOMAIN, SERVICE_BYPASS_TIMED)
-            hass.services.async_remove(DOMAIN, SERVICE_SET_CLOCK)
+async def async_unload_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> bool:
+    """Unload a config entry.
+
+    Services stay registered: they belong to the component, not the entry, and
+    refuse with a translated error while nothing is loaded.
+    """
+    unloaded: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     return unloaded

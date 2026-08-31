@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import Awaitable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -151,7 +152,7 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("no devices returned")
         return result
 
-    async def async_send_and_refresh(self, coro) -> None:
+    async def async_send_and_refresh(self, coro: Awaitable[Any]) -> None:
         """Await a command, then refresh.
 
         The API acknowledges commands without confirming the device acted, so a
@@ -163,3 +164,6 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except CulliganError as err:
             raise UpdateFailed(f"command failed: {err}") from err
         await self.async_request_refresh()
+
+
+type CulliganConfigEntry = ConfigEntry[CulliganCoordinator]

@@ -13,7 +13,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CulliganApiClient, CulliganAuthError, CulliganError
@@ -24,7 +24,9 @@ STEP_USER_SCHEMA = vol.Schema(
 )
 
 
-async def _validate(hass, email: str, password: str) -> list[dict[str, Any]]:
+async def _validate(
+    hass: HomeAssistant, email: str, password: str
+) -> list[dict[str, Any]]:
     """Log in and return the account's devices, or raise."""
     session = async_get_clientsession(hass)
     client = CulliganApiClient(session, email, password)
@@ -32,7 +34,9 @@ async def _validate(hass, email: str, password: str) -> list[dict[str, Any]]:
     return await client.async_get_devices()
 
 
-class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):
+# `domain=` is real on Home Assistant's ConfigFlow; it only looks wrong when
+# HA is absent and the base class degrades to `object`.
+class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle setup and reauthentication."""
 
     VERSION = 1
@@ -65,6 +69,42 @@ class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the account without deleting the entry."""
+        errors: dict[str, str] = {}
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            email = user_input[CONF_EMAIL].strip()
+            try:
+                devices = await _validate(self.hass, email, user_input[CONF_PASSWORD])
+            except CulliganAuthError:
+                errors["base"] = "invalid_auth"
+            except CulliganError:
+                errors["base"] = "cannot_connect"
+            else:
+                if not devices:
+                    errors["base"] = "no_devices"
+                else:
+                    await self.async_set_unique_id(email.lower())
+                    self._abort_if_unique_id_mismatch(reason="another_account")
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data={
+                            CONF_EMAIL: email,
+                            CONF_PASSWORD: user_input[CONF_PASSWORD],
+                        },
+                    )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_USER_SCHEMA, {CONF_EMAIL: entry.data[CONF_EMAIL]}
+            ),
+            errors=errors,
         )
 
     async def async_step_reauth(

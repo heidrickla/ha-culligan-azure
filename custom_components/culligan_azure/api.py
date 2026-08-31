@@ -71,7 +71,11 @@ class CulliganApiClient:
             raise CulliganError(f"login transport error: {err}") from err
 
     async def _request(
-        self, method: str, path: str, json_body: dict | None = None, _retry: bool = True
+        self,
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+        _retry: bool = True,
     ) -> dict[str, Any]:
         """Make an authenticated request, re-logging-in once on 401."""
         async with self._lock:
@@ -97,7 +101,8 @@ class CulliganApiClient:
                 body = await resp.json(content_type=None)
                 if resp.status != 200:
                     raise CulliganError(f"{method} {path}: HTTP {resp.status} {body}")
-                return body
+                parsed: dict[str, Any] = body
+                return parsed
         except aiohttp.ClientError as err:
             raise CulliganError(f"{method} {path}: transport error: {err}") from err
 
@@ -106,17 +111,20 @@ class CulliganApiClient:
     async def async_get_devices(self) -> list[dict[str, Any]]:
         """Device list WITH full telemetry -- one call gets everything."""
         body = await self._request("GET", "/api/v1/device/registry")
-        return body.get("data", {}).get("devices", [])
+        devices: list[dict[str, Any]] = body.get("data", {}).get("devices", [])
+        return devices
 
     async def async_get_state(self, serial: str) -> dict[str, Any]:
         """Connection/health for one device. serialNumber is required."""
         body = await self._request("GET", f"/api/v1/device/state?serialNumber={serial}")
-        return body.get("data", {})
+        state: dict[str, Any] = body.get("data", {})
+        return state
 
     async def async_get_datapoints(self, serial: str) -> dict[str, Any]:
         """Telemetry only. serialNumber is required."""
         body = await self._request("GET", f"/api/v1/device/data?serialNumber={serial}")
-        return body.get("data", {}).get("datapoints", {})
+        points: dict[str, Any] = body.get("data", {}).get("datapoints", {})
+        return points
 
     # -- writes -----------------------------------------------------------
 
@@ -126,7 +134,7 @@ class CulliganApiClient:
         # Naive local time on purpose: the app's requestId carries no UTC
         # offset, and an aware isoformat() would append one, changing the
         # wire format we are deliberately mirroring.
-        return f"CC-{datetime.datetime.now().isoformat()}-{uuid.uuid4().hex[:8]}"  # noqa: DTZ005
+        return f"CC-{datetime.datetime.now().isoformat()}-{uuid.uuid4().hex[:8]}"
 
     async def async_send_command(
         self, serial: str, command: str, params: dict[str, Any] | None = None
@@ -145,7 +153,8 @@ class CulliganApiClient:
         body = await self._request("POST", "/api/v1/device/command", payload)
         if not body.get("success"):
             raise CulliganError(f"command {command} rejected: {body}")
-        return body.get("data", {}).get("requestId", "")
+        request_id: str = body.get("data", {}).get("requestId", "")
+        return request_id
 
     # Convenience wrappers -- shapes verified against real hardware.
 
@@ -184,7 +193,7 @@ class CulliganApiClient:
         on month/day) -- taken from AzureDeviceCommandFactory.setDateTime."""
         # Naive LOCAL time on purpose: this sets the controller's own wall
         # clock, which has no timezone concept - it wants local time.
-        when = when or datetime.datetime.now()  # noqa: DTZ005
+        when = when or datetime.datetime.now()
         value = f"{when.month}-{when.day}-{when.year}_{when:%H:%M:%S}"
         return await self.async_send_command(
             serial, "timeDate.set", {"dateTimeValue": value}

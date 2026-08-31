@@ -1,0 +1,108 @@
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-flow-test-coverage:
+    status: todo
+    comment: The config flow has no automated tests.
+  config-flow: done
+  dependency-transparency:
+    status: exempt
+    comment: |
+      No external dependencies. The Azure API is spoken to over aiohttp
+      directly.
+  docs-actions: done
+  docs-conditions:
+    status: exempt
+    comment: This integration does not provide conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: This integration does not provide triggers.
+  entity-event-setup:
+    status: exempt
+    comment: Entities do not subscribe to events of their own.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: |
+      The resin-health calculations have unit tests. The API client, coordinator
+      and entity layers do not.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: |
+      Devices are enumerated from the account after login. There is nothing to
+      find on the local network.
+  discovery-update-info:
+    status: exempt
+    comment: Cloud polling; no local network information to update.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: todo
+    comment: |
+      Devices are read once at setup. A softener added to the account after
+      that needs a reload.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: exempt
+    comment: |
+      Every entity corresponds to a datapoint the appliance actually reports;
+      none is noisy enough to warrant hiding.
+  entity-translations:
+    status: todo
+    comment: |
+      Entity names are English strings on the descriptions rather than
+      translation keys.
+  exception-translations: done
+  icon-translations:
+    status: todo
+    comment: Icons are set with `_attr_icon` rather than `icons.json`.
+  reconfiguration-flow: done
+  repair-issues:
+    status: exempt
+    comment: |
+      Authentication failure raises a reauth flow. No other condition needs
+      user intervention.
+  stale-devices:
+    status: todo
+    comment: |
+      A softener removed from the account leaves its device behind until the
+      entry is reloaded.
+
+  # Platinum
+  async-dependency:
+    status: exempt
+    comment: No external dependency; aiohttp is used directly.
+  inject-websession: done
+  strict-typing: done

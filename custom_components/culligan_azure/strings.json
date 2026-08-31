@@ -4,12 +4,25 @@
       "user": {
         "title": "Culligan account",
         "description": "Sign in with the same account you use in the Culligan Connect app.",
-        "data": { "email": "Email", "password": "Password" }
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
       },
       "reauth_confirm": {
         "title": "Re-enter password",
         "description": "Culligan rejected the stored credentials.",
-        "data": { "password": "Password" }
+        "data": {
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Culligan",
+        "description": "Sign in again, or switch to a different Culligan account.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -17,15 +30,29 @@
       "cannot_connect": "Could not reach the Culligan API.",
       "no_devices": "Sign-in worked but no devices are registered to this account."
     },
-    "abort": { "already_configured": "This account is already set up." }
+    "abort": {
+      "already_configured": "This account is already set up.",
+      "another_account": "Those credentials are for a different account. Add it as a new entry instead.",
+      "reconfigure_successful": "Culligan has been reconfigured."
+    }
   },
   "options": {
     "step": {
       "init": {
         "title": "Options",
-        "data": { "scan_interval": "Polling interval (seconds)" },
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        },
         "description": "How often to poll the Culligan cloud. A softener changes state slowly; short intervals add load to an undocumented API for no benefit."
       }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Culligan is not loaded, so this action cannot run."
+    },
+    "unknown_serial": {
+      "message": "No configured Culligan device with serial {serial}."
     }
   }
 }

@@ -22,15 +22,18 @@ class CulliganEntity(CoordinatorEntity[CulliganCoordinator]):
 
     @property
     def _entry(self) -> dict[str, Any]:
-        return self.coordinator.data.get(self._serial, {})
+        entry: dict[str, Any] = self.coordinator.data.get(self._serial, {})
+        return entry
 
     @property
     def datapoints(self) -> dict[str, Any]:
-        return self._entry.get("datapoints", {})
+        points: dict[str, Any] = self._entry.get("datapoints", {})
+        return points
 
     @property
     def health(self) -> dict[str, Any]:
-        return self._entry.get("health", {})
+        health: dict[str, Any] = self._entry.get("health", {})
+        return health
 
     @property
     def available(self) -> bool:

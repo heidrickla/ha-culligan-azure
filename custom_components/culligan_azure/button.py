@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import CulliganCoordinator
+from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .entity import CulliganEntity
+
+# One coordinator polls; entities do no I/O of their own.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: CulliganConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: CulliganCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     entities: list[ButtonEntity] = []
     for serial in coordinator.data:
         entities.append(CulliganRegenNowButton(coordinator, serial))

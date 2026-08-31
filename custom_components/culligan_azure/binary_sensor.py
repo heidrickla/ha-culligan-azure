@@ -11,13 +11,11 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import CulliganCoordinator
+from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .entity import CulliganEntity
 
 
@@ -148,10 +146,16 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
 )
 
 
+# One coordinator polls; entities do no I/O of their own.
+PARALLEL_UPDATES = 0
+
+
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: CulliganConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: CulliganCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
         CulliganBinarySensor(coordinator, serial, desc)
         for serial in coordinator.data
