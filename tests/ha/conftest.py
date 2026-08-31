@@ -8,13 +8,10 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.culligan_azure.const import (
-    CONF_EMAIL,
-    CONF_PASSWORD,
-    DOMAIN,
-)
+from custom_components.culligan_azure.const import DOMAIN
 
 EMAIL = "someone@example.com"
 SERIAL = "GBX0001234"
