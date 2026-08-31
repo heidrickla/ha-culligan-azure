@@ -53,7 +53,7 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         # {serial: [ {ts, gallons, regens}, ... ] } persisted across restarts.
-        self._store: Store = Store(
+        self._store: Store[dict[str, list[dict[str, float]]]] = Store(
             hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}"
         )
         self._resin_history: dict[str, list[dict[str, float]]] = {}
