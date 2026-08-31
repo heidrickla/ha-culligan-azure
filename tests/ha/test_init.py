@@ -68,7 +68,7 @@ async def test_unload_removes_the_entities(hass, config_entry):
         assert state is None or state.state == "unavailable"
 
 
-async def test_the_services_exist_before_any_entry_is_added(hass, config_entry):
+async def test_the_services_survive_an_unloaded_entry(hass, config_entry):
     """Registered per entry they vanish while the entry is unloaded, and an
     automation calling one then fails as though the service name were a typo."""
     await _setup(hass, config_entry)
