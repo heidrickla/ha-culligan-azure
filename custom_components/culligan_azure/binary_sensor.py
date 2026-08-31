@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .discovery import async_add_new_devices
 from .entity import CulliganEntity
+from .health import as_number
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -26,6 +27,12 @@ class CulliganBinaryDescription(BinarySensorEntityDescription):
 
     value_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], bool | None]
     attrs_fn: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+
+
+def _fault_state(flags: float | None, days: float | None) -> bool | None:
+    if flags is None and days is None:
+        return None
+    return bool(flags or days)
 
 
 BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
@@ -39,7 +46,9 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     CulliganBinaryDescription(
         key="away_mode",
         translation_key="away_mode",
-        value_fn=lambda dp, _h, _e: bool(dp.get("away_mode")),
+        value_fn=lambda dp, _h, _e: (
+            None if (v := as_number(dp, "away_mode")) is None else bool(v)
+        ),
     ),
     CulliganBinaryDescription(
         key="regenerating",
@@ -53,7 +62,9 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     CulliganBinaryDescription(
         key="regen_pending",
         translation_key="regen_pending",
-        value_fn=lambda dp, _h, _e: bool(dp.get("regen_tonight_pending")),
+        value_fn=lambda dp, _h, _e: (
+            None if (v := as_number(dp, "regen_tonight_pending")) is None else bool(v)
+        ),
     ),
     # --- health flags ---
     CulliganBinaryDescription(
@@ -78,8 +89,10 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
         translation_key="has_faults",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda dp, _h, _e: bool(
-            dp.get("system_error_bit_flags") or dp.get("days_in_error")
+        # Coerced: telemetry values can arrive as strings, and bool("0")
+        # is True. Both absent means unknown, not healthy.
+        value_fn=lambda dp, _h, _e: _fault_state(
+            as_number(dp, "system_error_bit_flags"), as_number(dp, "days_in_error")
         ),
         attrs_fn=lambda dp, h: {
             "system_error_bit_flags": dp.get("system_error_bit_flags"),

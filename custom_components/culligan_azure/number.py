@@ -39,8 +39,7 @@ class CulliganSaltLevelNumber(CulliganEntity, NumberEntity):
     model and simply counts down from whatever you tell it.
     """
 
-    _attr_name = "Salt level"
-    _attr_icon = "mdi:shaker-outline"
+    _attr_translation_key = "salt_level"
     _attr_native_min_value = 0
     _attr_native_max_value = 100
     _attr_native_step = 25

@@ -9,7 +9,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -152,17 +152,43 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("no devices returned")
         return result
 
+    async def async_flush_history(self) -> None:
+        """Write the resin history now, superseding any pending delayed save.
+
+        Called at unload so a delayed save cannot fire after the entry is
+        gone - on removal that would recreate the store file just deleted.
+        """
+        await self._store.async_save(dict(self._resin_history))
+
     async def async_send_and_refresh(self, coro: Awaitable[Any]) -> None:
         """Await a command, then refresh.
 
         The API acknowledges commands without confirming the device acted, so a
         refresh is the only way to learn what actually happened. The device
         needs a moment to round-trip via Azure IoT Hub before the change shows.
+
+        Raises HomeAssistantError, not UpdateFailed: these run inside entity
+        actions and services, where UpdateFailed is the wrong contract and its
+        message reaches the user untranslated.
         """
         try:
             await coro
+        except CulliganAuthError as err:
+            # Dead credentials fail every future command too - start reauth
+            # rather than letting each press fail with the same message.
+            if self.config_entry is not None:
+                self.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="auth_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
         except CulliganError as err:
-            raise UpdateFailed(f"command failed: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self.async_request_refresh()
 
 

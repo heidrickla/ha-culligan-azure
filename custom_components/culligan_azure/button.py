@@ -41,8 +41,7 @@ class CulliganRegenNowButton(CulliganEntity, ButtonEntity):
     Consumes salt and backwash water, so this is not a free action.
     """
 
-    _attr_name = "Regenerate now"
-    _attr_icon = "mdi:autorenew"
+    _attr_translation_key = "regen_now"
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
         super().__init__(coordinator, serial)
@@ -60,8 +59,7 @@ class CulliganRegenScheduledButton(CulliganEntity, ButtonEntity):
     Verified: regen.set {"type": 2} -> last_regen_trigger 11.
     """
 
-    _attr_name = "Schedule regeneration"
-    _attr_icon = "mdi:calendar-clock"
+    _attr_translation_key = "regen_scheduled"
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
         super().__init__(coordinator, serial)
@@ -76,8 +74,7 @@ class CulliganRegenScheduledButton(CulliganEntity, ButtonEntity):
 class CulliganRefreshButton(CulliganEntity, ButtonEntity):
     """Ask the device to push fresh telemetry, then re-poll."""
 
-    _attr_name = "Refresh telemetry"
-    _attr_icon = "mdi:refresh"
+    _attr_translation_key = "refresh_telemetry"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
@@ -101,8 +98,7 @@ class CulliganSetClockButton(CulliganEntity, ButtonEntity):
     no datapoint reports the current controller time.
     """
 
-    _attr_name = "Sync controller clock"
-    _attr_icon = "mdi:clock-check"
+    _attr_translation_key = "sync_clock"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:

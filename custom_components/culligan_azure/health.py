@@ -19,6 +19,7 @@ figure scales but the "actual vs expected" comparison keeps its shape.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 # Regenerating more than this many times more often than capacity implies is
@@ -31,8 +32,12 @@ OVER_REGEN_RATIO = 0.5
 SERVICE_INTERVAL_DAYS = 365
 
 
-def _num(dp: dict[str, Any], key: str) -> float | None:
-    """Fetch a numeric datapoint, or None if absent/not a number."""
+def as_number(dp: dict[str, Any], key: str) -> float | None:
+    """Fetch a numeric datapoint, or None if absent/not a number.
+
+    Shared with the entity platforms: raw truthiness on telemetry is a trap
+    because values can arrive as strings and bool("0") is True.
+    """
     v = dp.get(key)
     if isinstance(v, bool) or v is None:
         return None
@@ -46,8 +51,8 @@ def _num(dp: dict[str, Any], key: str) -> float | None:
 
 def regens_per_day(dp: dict[str, Any]) -> float | None:
     """Lifetime average regenerations per day."""
-    total = _num(dp, "total_regens_since_install")
-    days = _num(dp, "days_since_install")
+    total = as_number(dp, "total_regens_since_install")
+    days = as_number(dp, "days_since_install")
     if total is None or days is None or days <= 0:
         return None
     return total / days
@@ -56,7 +61,7 @@ def regens_per_day(dp: dict[str, Any]) -> float | None:
 def recent_regens_per_day(dp: dict[str, Any]) -> float | None:
     """Regenerations per day over the trailing 14 days -- catches a unit that
     has recently started over-cycling, which the lifetime average would dilute."""
-    recent = _num(dp, "total_regens_last_14_days")
+    recent = as_number(dp, "total_regens_last_14_days")
     if recent is None:
         return None
     return recent / 14.0
@@ -77,8 +82,8 @@ def expected_days_between_regens(dp: dict[str, Any]) -> float | None:
 
     See the units caveat in the module docstring.
     """
-    capacity = _num(dp, "total_capacity")
-    usage = _num(dp, "average_daily_use")
+    capacity = as_number(dp, "total_capacity")
+    usage = as_number(dp, "average_daily_use")
     if capacity is None or usage is None or usage <= 0 or capacity <= 0:
         return None
     return capacity / usage
@@ -145,18 +150,18 @@ def most_common_error(dp: dict[str, Any]) -> tuple[int, int] | None:
     errors = dp.get("errors")
     if not isinstance(errors, list) or not errors:
         return None
-    counts: dict[int, int] = {}
-    for e in errors:
-        if isinstance(e, dict) and isinstance(e.get("num"), int):
-            counts[e["num"]] = counts.get(e["num"], 0) + 1
+    counts: Counter[int] = Counter(
+        e["num"]
+        for e in errors
+        if isinstance(e, dict) and isinstance(e.get("num"), int)
+    )
     if not counts:
         return None
-    num = max(counts, key=lambda k: counts[k])
-    return num, counts[num]
+    return counts.most_common(1)[0]
 
 
 def service_overdue(dp: dict[str, Any]) -> bool | None:
-    days = _num(dp, "days_since_last_service")
+    days = as_number(dp, "days_since_last_service")
     if days is None:
         return None
     return days > SERVICE_INTERVAL_DAYS
@@ -178,7 +183,13 @@ def clock_is_wrong(dp: dict[str, Any], now_year: int) -> bool | None:
         return None
     if year < 2000:  # zero/sentinel value, not a real reading
         return None
-    return abs(year - now_year) >= 1
+    # The stamp records a PAST event, so the two directions mean different
+    # things. A future year is always a wrong clock. A past year needs slack:
+    # one day of uptime across New Year puts last power-up in the prior
+    # calendar year on a perfect clock.
+    if year > now_year:
+        return True
+    return now_year - year >= 2
 
 
 def summary(dp: dict[str, Any], now_year: int | None = None) -> dict[str, Any]:

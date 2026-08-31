@@ -36,6 +36,7 @@ samples accumulate. Nothing here is a manufacturer specification.
 
 from __future__ import annotations
 
+import statistics
 from collections.abc import Iterable
 from typing import Any
 
@@ -179,27 +180,30 @@ def windowed_capacities(
 
 def _linear_fit(points: list[tuple[float, float]]) -> tuple[float, float] | None:
     """Least-squares (slope, intercept) of y against x. None if degenerate."""
-    n = len(points)
-    if n < 2:
+    if len(points) < 2:
         return None
-    mean_x = sum(p[0] for p in points) / n
-    mean_y = sum(p[1] for p in points) / n
-    denom = sum((p[0] - mean_x) ** 2 for p in points)
-    if denom <= 0:
+    try:
+        fit = statistics.linear_regression(
+            [p[0] for p in points], [p[1] for p in points]
+        )
+    except statistics.StatisticsError:  # all x identical
         return None
-    slope = sum((p[0] - mean_x) * (p[1] - mean_y) for p in points) / denom
-    return slope, mean_y - slope * mean_x
+    return fit.slope, fit.intercept
 
 
-def _r_squared(
-    points: list[tuple[float, float]], slope: float, intercept: float
-) -> float:
-    mean_y = sum(p[1] for p in points) / len(points)
-    ss_tot = sum((p[1] - mean_y) ** 2 for p in points)
-    ss_res = sum((p[1] - (slope * p[0] + intercept)) ** 2 for p in points)
-    if ss_tot <= 0:
+def _r_squared(points: list[tuple[float, float]]) -> float:
+    """r-squared of the least-squares fit of these points.
+
+    Valid only against that fit - for an OLS line r2 equals the squared
+    correlation of the points themselves, which is what this computes.
+    """
+    try:
+        return max(
+            0.0,
+            statistics.correlation([p[0] for p in points], [p[1] for p in points]) ** 2,
+        )
+    except statistics.StatisticsError:  # constant input on either axis
         return 0.0
-    return max(0.0, 1.0 - ss_res / ss_tot)
 
 
 def analyse(
@@ -245,17 +249,16 @@ def analyse(
 
     result["capacity_fade_percent"] = round((1.0 - current / baseline) * 100.0, 1)
 
-    fit = _linear_fit([(ts / SECONDS_PER_DAY, v) for ts, v in series])
+    points = [(ts / SECONDS_PER_DAY, v) for ts, v in series]
+    fit = _linear_fit(points)
     if fit is None:
         result["status"] = "no_trend"
         return result
-    slope_per_day, intercept = fit
+    slope_per_day, _intercept = fit
     fade_per_year = -slope_per_day * DAYS_PER_YEAR  # positive when declining
     result["fade_per_year"] = round(fade_per_year, 2)
 
-    r2 = _r_squared(
-        [(ts / SECONDS_PER_DAY, v) for ts, v in series], slope_per_day, intercept
-    )
+    r2 = _r_squared(points)
     result["confidence"] = round(r2, 3)
 
     threshold = baseline * end_of_life_fraction

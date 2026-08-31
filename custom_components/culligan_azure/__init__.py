@@ -8,19 +8,31 @@ newer Culligan hardware was migrated to Azure IoT and cannot use it.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
+from homeassistant.const import (
+    CONF_EMAIL,
+    CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    Platform,
+)
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .api import CulliganApiClient
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .coordinator import (
+    STORAGE_KEY,
+    STORAGE_VERSION,
+    CulliganConfigEntry,
+    CulliganCoordinator,
+)
 from .discovery import async_remove_stale_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +57,10 @@ BYPASS_TIMED_SCHEMA = vol.Schema(
 
 SET_CLOCK_SCHEMA = vol.Schema({vol.Required("serial_number"): cv.string})
 
+# Config-entry only. A stray YAML block then raises the standard repair
+# issue instead of being silently ignored.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register services at component setup.
@@ -63,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> 
         session, entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD]
     )
 
-    scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     coordinator = CulliganCoordinator(hass, entry, client, scan_interval)
     # Resin history must be loaded before the first poll, or that poll's sample
     # would be appended to an empty list and the baseline lost on every restart.
@@ -75,6 +91,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> None:
+    """Delete the entry's resin-history store file with the entry.
+
+    The store is keyed per entry_id, so without this every removed account
+    leaves an orphaned file in .storage forever.
+    """
+    store: Store[dict[str, Any]] = Store(
+        hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}"
+    )
+    await store.async_remove()
 
 
 def _register_services(hass: HomeAssistant) -> None:
@@ -137,4 +165,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: CulliganConfigEntry) ->
     refuse with a translated error while nothing is loaded.
     """
     unloaded: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.async_flush_history()
     return unloaded

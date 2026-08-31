@@ -72,6 +72,33 @@
       "clock_wrong": {
         "default": "mdi:clock-alert"
       }
+    },
+    "switch": {
+      "away_mode": {
+        "default": "mdi:bag-suitcase"
+      },
+      "bypass": {
+        "default": "mdi:water-off"
+      }
+    },
+    "button": {
+      "regen_now": {
+        "default": "mdi:autorenew"
+      },
+      "regen_scheduled": {
+        "default": "mdi:calendar-clock"
+      },
+      "refresh_telemetry": {
+        "default": "mdi:refresh"
+      },
+      "sync_clock": {
+        "default": "mdi:clock-check"
+      }
+    },
+    "number": {
+      "salt_level": {
+        "default": "mdi:shaker-outline"
+      }
     }
   }
 }

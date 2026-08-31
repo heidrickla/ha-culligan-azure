@@ -2,9 +2,6 @@
 
 DOMAIN = "culligan_azure"
 
-CONF_EMAIL = "email"
-CONF_PASSWORD = "password"
-CONF_SCAN_INTERVAL = "scan_interval"
 
 # The app polls telemetry every ~10-20s while a device screen is open. That is
 # far more aggressive than a background integration needs, and this API is
