@@ -1,0 +1,77 @@
+{
+  "entity": {
+    "sensor": {
+      "current_flow_rate": {
+        "default": "mdi:water"
+      },
+      "capacity_remaining": {
+        "default": "mdi:gauge"
+      },
+      "salt_level": {
+        "default": "mdi:shaker-outline"
+      },
+      "days_salt_remaining": {
+        "default": "mdi:calendar-clock"
+      },
+      "regen_time_remaining": {
+        "default": "mdi:progress-clock"
+      },
+      "actual_regen_interval": {
+        "default": "mdi:calendar-refresh"
+      },
+      "expected_regen_interval": {
+        "default": "mdi:calendar-check"
+      },
+      "regen_efficiency": {
+        "default": "mdi:leaf"
+      },
+      "excess_regens_per_year": {
+        "default": "mdi:alert-decagram-outline"
+      },
+      "resin_life_remaining": {
+        "default": "mdi:hourglass-bottom"
+      },
+      "resin_capacity_fade": {
+        "default": "mdi:chart-line-variant"
+      },
+      "resin_capacity_current": {
+        "default": "mdi:cup-water"
+      },
+      "resin_cycle_age": {
+        "default": "mdi:calendar-account"
+      },
+      "resin_capacity_lifetime": {
+        "default": "mdi:cup-water"
+      },
+      "error_count": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "hardness": {
+        "default": "mdi:water-percent"
+      }
+    },
+    "binary_sensor": {
+      "away_mode": {
+        "default": "mdi:bag-suitcase"
+      },
+      "regenerating": {
+        "default": "mdi:autorenew"
+      },
+      "regen_pending": {
+        "default": "mdi:calendar-clock"
+      },
+      "over_regenerating": {
+        "default": "mdi:alert-decagram"
+      },
+      "resin_replacement_due": {
+        "default": "mdi:water-remove"
+      },
+      "service_overdue": {
+        "default": "mdi:wrench-clock"
+      },
+      "clock_wrong": {
+        "default": "mdi:clock-alert"
+      }
+    }
+  }
+}

@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from .api import CulliganApiClient
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .discovery import async_remove_stale_devices
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> 
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
+    async_remove_stale_devices(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True

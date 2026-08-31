@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 
 
@@ -30,21 +31,19 @@ class CulliganBinaryDescription(BinarySensorEntityDescription):
 BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     CulliganBinaryDescription(
         key="connected",
-        name="Connected",
+        translation_key="connected",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda _dp, _h, entry: entry.get("connected"),
     ),
     CulliganBinaryDescription(
         key="away_mode",
-        name="Away mode",
-        icon="mdi:bag-suitcase",
+        translation_key="away_mode",
         value_fn=lambda dp, _h, _e: bool(dp.get("away_mode")),
     ),
     CulliganBinaryDescription(
         key="regenerating",
-        name="Regenerating",
-        icon="mdi:autorenew",
+        translation_key="regenerating",
         # time_rem_in_position counts down only while a cycle is running.
         value_fn=lambda dp, _h, _e: bool(
             isinstance(dp.get("time_rem_in_position"), (int, float))
@@ -53,16 +52,14 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     ),
     CulliganBinaryDescription(
         key="regen_pending",
-        name="Regeneration pending tonight",
-        icon="mdi:calendar-clock",
+        translation_key="regen_pending",
         value_fn=lambda dp, _h, _e: bool(dp.get("regen_tonight_pending")),
     ),
     # --- health flags ---
     CulliganBinaryDescription(
         key="over_regenerating",
-        name="Over-regenerating",
+        translation_key="over_regenerating",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        icon="mdi:alert-decagram",
         value_fn=lambda _dp, h, _e: h.get("over_regenerating"),
         attrs_fn=lambda _dp, h: {
             "actual_days_between_regens": h.get("actual_days_between_regens"),
@@ -78,7 +75,7 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     ),
     CulliganBinaryDescription(
         key="has_faults",
-        name="Fault present",
+        translation_key="has_faults",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda dp, _h, _e: bool(
@@ -93,9 +90,8 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     ),
     CulliganBinaryDescription(
         key="resin_replacement_due",
-        name="Resin replacement due",
+        translation_key="resin_replacement_due",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        icon="mdi:water-remove",
         # Only fires on a measured, confident trend -- never on assumption, and
         # never while still collecting history.
         value_fn=lambda _dp, h, _e: (
@@ -121,18 +117,16 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     ),
     CulliganBinaryDescription(
         key="service_overdue",
-        name="Service overdue",
+        translation_key="service_overdue",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:wrench-clock",
         value_fn=lambda _dp, h, _e: h.get("service_overdue"),
     ),
     CulliganBinaryDescription(
         key="clock_wrong",
-        name="Controller clock wrong",
+        translation_key="clock_wrong",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:clock-alert",
         value_fn=lambda _dp, h, _e: h.get("clock_is_wrong"),
         attrs_fn=lambda dp, _h: {
             "last_power_up_time": dp.get("last_power_up_time"),
@@ -156,10 +150,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        CulliganBinarySensor(coordinator, serial, desc)
-        for serial in coordinator.data
-        for desc in BINARY_SENSORS
+    async_add_new_devices(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda serial: (
+            CulliganBinarySensor(coordinator, serial, desc) for desc in BINARY_SENSORS
+        ),
     )
 
 

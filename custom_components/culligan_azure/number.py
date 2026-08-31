@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 
 # One coordinator polls; entities do no I/O of their own.
@@ -19,8 +20,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        CulliganSaltLevelNumber(coordinator, serial) for serial in coordinator.data
+    async_add_new_devices(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda serial: (CulliganSaltLevelNumber(coordinator, serial),),
     )
 
 

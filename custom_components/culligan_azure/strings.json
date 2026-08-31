@@ -54,5 +54,116 @@
     "unknown_serial": {
       "message": "No configured Culligan device with serial {serial}."
     }
+  },
+  "entity": {
+    "sensor": {
+      "current_flow_rate": {
+        "name": "Current flow rate"
+      },
+      "water_today": {
+        "name": "Water used today"
+      },
+      "water_lifetime": {
+        "name": "Water used lifetime"
+      },
+      "average_daily_use": {
+        "name": "Average daily use"
+      },
+      "capacity_remaining": {
+        "name": "Capacity remaining"
+      },
+      "salt_level": {
+        "name": "Salt level"
+      },
+      "days_salt_remaining": {
+        "name": "Salt days remaining"
+      },
+      "regen_time_remaining": {
+        "name": "Regeneration time remaining"
+      },
+      "days_since_last_regen": {
+        "name": "Days since last regeneration"
+      },
+      "last_regen": {
+        "name": "Last regeneration"
+      },
+      "next_regen": {
+        "name": "Next regeneration"
+      },
+      "regens_lifetime": {
+        "name": "Regenerations lifetime"
+      },
+      "actual_regen_interval": {
+        "name": "Regeneration interval (actual)"
+      },
+      "expected_regen_interval": {
+        "name": "Regeneration interval (expected)"
+      },
+      "regen_efficiency": {
+        "name": "Regeneration efficiency"
+      },
+      "excess_regens_per_year": {
+        "name": "Excess regenerations per year"
+      },
+      "resin_life_remaining": {
+        "name": "Resin life remaining"
+      },
+      "resin_capacity_fade": {
+        "name": "Resin capacity fade"
+      },
+      "resin_capacity_current": {
+        "name": "Capacity per regeneration"
+      },
+      "resin_cycle_age": {
+        "name": "Resin cycle age"
+      },
+      "resin_capacity_lifetime": {
+        "name": "Capacity per regeneration (lifetime avg)"
+      },
+      "error_count": {
+        "name": "Fault log entries"
+      },
+      "days_since_service": {
+        "name": "Days since service"
+      },
+      "hardness": {
+        "name": "Hardness setting"
+      },
+      "rssi": {
+        "name": "Wi-Fi signal"
+      },
+      "last_power_up": {
+        "name": "Last power up"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "away_mode": {
+        "name": "Away mode"
+      },
+      "regenerating": {
+        "name": "Regenerating"
+      },
+      "regen_pending": {
+        "name": "Regeneration pending tonight"
+      },
+      "over_regenerating": {
+        "name": "Over-regenerating"
+      },
+      "has_faults": {
+        "name": "Fault present"
+      },
+      "resin_replacement_due": {
+        "name": "Resin replacement due"
+      },
+      "service_overdue": {
+        "name": "Service overdue"
+      },
+      "clock_wrong": {
+        "name": "Controller clock wrong"
+      }
+    }
   }
 }

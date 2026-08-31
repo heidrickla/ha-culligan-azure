@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 
 # One coordinator polls; entities do no I/O of their own.
@@ -21,11 +22,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    entities: list[SwitchEntity] = []
-    for serial in coordinator.data:
-        entities.append(CulliganAwayModeSwitch(coordinator, serial))
-        entities.append(CulliganBypassSwitch(coordinator, serial))
-    async_add_entities(entities)
+    async_add_new_devices(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda serial: (
+            CulliganAwayModeSwitch(coordinator, serial),
+            CulliganBypassSwitch(coordinator, serial),
+        ),
+    )
 
 
 class CulliganAwayModeSwitch(CulliganEntity, SwitchEntity):

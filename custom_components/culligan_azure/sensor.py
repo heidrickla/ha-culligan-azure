@@ -18,6 +18,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import CulliganConfigEntry, CulliganCoordinator
+from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 
 GALLONS = UnitOfVolume.GALLONS
@@ -74,15 +75,13 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     CulliganSensorDescription(
         key="current_flow_rate",
         translation_key="current_flow_rate",
-        name="Current flow rate",
         native_unit_of_measurement="gal/min",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:water",
         value_fn=_dp("current_flow_rate"),
     ),
     CulliganSensorDescription(
         key="water_today",
-        name="Water used today",
+        translation_key="water_today",
         native_unit_of_measurement=GALLONS,
         device_class=SensorDeviceClass.WATER,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -90,7 +89,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="water_lifetime",
-        name="Water used lifetime",
+        translation_key="water_lifetime",
         native_unit_of_measurement=GALLONS,
         device_class=SensorDeviceClass.WATER,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -99,67 +98,63 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="average_daily_use",
-        name="Average daily use",
+        translation_key="average_daily_use",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("average_daily_use"),
     ),
     CulliganSensorDescription(
         key="capacity_remaining",
-        name="Capacity remaining",
+        translation_key="capacity_remaining",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:gauge",
         value_fn=_dp("capacity_remaining_tank_1"),
     ),
     # --- salt ---
     CulliganSensorDescription(
         key="salt_level",
-        name="Salt level",
+        translation_key="salt_level",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:shaker-outline",
         value_fn=_dp("manual_salt_level_rem_calc"),
     ),
     CulliganSensorDescription(
         key="days_salt_remaining",
-        name="Salt days remaining",
+        translation_key="days_salt_remaining",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:calendar-clock",
         value_fn=_dp("days_salt_remaining"),
     ),
     # --- regeneration ---
     CulliganSensorDescription(
         key="regen_time_remaining",
-        name="Regeneration time remaining",
+        translation_key="regen_time_remaining",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:progress-clock",
         value_fn=_dp("time_rem_in_position"),
     ),
     CulliganSensorDescription(
         key="days_since_last_regen",
-        name="Days since last regeneration",
+        translation_key="days_since_last_regen",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("days_since_last_regen_tank_1"),
     ),
     CulliganSensorDescription(
         key="last_regen",
-        name="Last regeneration",
+        translation_key="last_regen",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=_dp_dt("last_regen_date_time_tank_1"),
     ),
     CulliganSensorDescription(
         key="next_regen",
-        name="Next regeneration",
+        translation_key="next_regen",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=_dp_dt("next_regen_date_time"),
     ),
     CulliganSensorDescription(
         key="regens_lifetime",
-        name="Regenerations lifetime",
+        translation_key="regens_lifetime",
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_dp("total_regens_since_install"),
@@ -169,26 +164,23 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     # isolation, and only their ratios reveal a misconfigured unit.
     CulliganSensorDescription(
         key="actual_regen_interval",
-        name="Regeneration interval (actual)",
+        translation_key="actual_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:calendar-refresh",
         value_fn=_hl("actual_days_between_regens", 2),
     ),
     CulliganSensorDescription(
         key="expected_regen_interval",
-        name="Regeneration interval (expected)",
+        translation_key="expected_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:calendar-check",
         value_fn=_hl("expected_days_between_regens", 2),
     ),
     CulliganSensorDescription(
         key="regen_efficiency",
-        name="Regeneration efficiency",
+        translation_key="regen_efficiency",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:leaf",
         value_fn=lambda _dp, h: (
             round(h["regen_efficiency_ratio"] * 100, 1)
             if isinstance(h.get("regen_efficiency_ratio"), (int, float))
@@ -206,9 +198,8 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="excess_regens_per_year",
-        name="Excess regenerations per year",
+        translation_key="excess_regens_per_year",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:alert-decagram-outline",
         value_fn=_hl("excess_regens_per_year", 0),
         attrs_fn=lambda _dp, h: {
             "note": (
@@ -223,10 +214,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     # deliberate: an estimate from three days of data would be fiction.
     CulliganSensorDescription(
         key="resin_life_remaining",
-        name="Resin life remaining",
+        translation_key="resin_life_remaining",
         native_unit_of_measurement="years",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:hourglass-bottom",
         value_fn=lambda _dp, h: (h.get("resin") or {}).get("years_remaining"),
         attrs_fn=lambda _dp, h: {
             **{
@@ -253,10 +243,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="resin_capacity_fade",
-        name="Resin capacity fade",
+        translation_key="resin_capacity_fade",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:chart-line-variant",
         value_fn=lambda _dp, h: (h.get("resin") or {}).get("capacity_fade_percent"),
         attrs_fn=lambda _dp, h: {
             "baseline_capacity": (h.get("resin") or {}).get("baseline_capacity"),
@@ -268,18 +257,16 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="resin_capacity_current",
-        name="Capacity per regeneration",
+        translation_key="resin_capacity_current",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:cup-water",
         value_fn=lambda _dp, h: (h.get("resin") or {}).get("current_capacity"),
     ),
     CulliganSensorDescription(
         key="resin_cycle_age",
-        name="Resin cycle age",
+        translation_key="resin_cycle_age",
         native_unit_of_measurement="years",
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:calendar-account",
         value_fn=lambda _dp, h: (
             round(h["resin_cycle_age_years"], 1)
             if isinstance(h.get("resin_cycle_age_years"), (int, float))
@@ -315,11 +302,10 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="resin_capacity_lifetime",
-        name="Capacity per regeneration (lifetime avg)",
+        translation_key="resin_capacity_lifetime",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:cup-water",
         value_fn=lambda _dp, h: (
             round(h["resin_lifetime_capacity"], 1)
             if isinstance(h.get("resin_lifetime_capacity"), (int, float))
@@ -329,10 +315,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     # --- diagnostics ---
     CulliganSensorDescription(
         key="error_count",
-        name="Fault log entries",
+        translation_key="error_count",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:alert-circle-outline",
         value_fn=_hl("error_count"),
         attrs_fn=lambda dp, h: {
             "most_common_code": h.get("most_common_error_code"),
@@ -343,7 +328,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="days_since_service",
-        name="Days since service",
+        translation_key="days_since_service",
         native_unit_of_measurement=UnitOfTime.DAYS,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -351,15 +336,14 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="hardness",
-        name="Hardness setting",
+        translation_key="hardness",
         native_unit_of_measurement="gpg",
         entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:water-percent",
         value_fn=_dp("hardness_value"),
     ),
     CulliganSensorDescription(
         key="rssi",
-        name="Wi-Fi signal",
+        translation_key="rssi",
         native_unit_of_measurement="dBm",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
@@ -368,7 +352,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
     ),
     CulliganSensorDescription(
         key="last_power_up",
-        name="Last power up",
+        translation_key="last_power_up",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_dp_dt("last_power_up_time"),
@@ -386,10 +370,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        CulliganSensor(coordinator, serial, desc)
-        for serial in coordinator.data
-        for desc in SENSORS
+    async_add_new_devices(
+        entry,
+        coordinator,
+        async_add_entities,
+        lambda serial: (CulliganSensor(coordinator, serial, desc) for desc in SENSORS),
     )
 
 

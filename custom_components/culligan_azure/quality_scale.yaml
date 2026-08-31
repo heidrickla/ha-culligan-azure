@@ -67,11 +67,7 @@ rules:
   docs-supported-functions: done
   docs-troubleshooting: done
   docs-use-cases: done
-  dynamic-devices:
-    status: todo
-    comment: |
-      Devices are read once at setup. A softener added to the account after
-      that needs a reload.
+  dynamic-devices: done
   entity-category: done
   entity-device-class: done
   entity-disabled-by-default:
@@ -79,26 +75,16 @@ rules:
     comment: |
       Every entity corresponds to a datapoint the appliance actually reports;
       none is noisy enough to warrant hiding.
-  entity-translations:
-    status: todo
-    comment: |
-      Entity names are English strings on the descriptions rather than
-      translation keys.
+  entity-translations: done
   exception-translations: done
-  icon-translations:
-    status: todo
-    comment: Icons are set with `_attr_icon` rather than `icons.json`.
+  icon-translations: done
   reconfiguration-flow: done
   repair-issues:
     status: exempt
     comment: |
       Authentication failure raises a reauth flow. No other condition needs
       user intervention.
-  stale-devices:
-    status: todo
-    comment: |
-      A softener removed from the account leaves its device behind until the
-      entry is reloaded.
+  stale-devices: done
 
   # Platinum
   async-dependency:
