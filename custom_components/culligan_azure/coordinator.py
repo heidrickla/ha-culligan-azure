@@ -14,9 +14,9 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from . import health, resin
+from . import capabilities, health, resin
 from .api import CulliganApiClient, CulliganAuthError, CulliganError
-from .const import DOMAIN
+from .const import CONF_FORCE_OFF, CONF_FORCE_ON, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -141,11 +141,22 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 datapoints, expected
             )
 
+            # Which hardware this unit actually has. Recomputed every poll so
+            # a capability that appears later (a dealer fitting an
+            # Aqua-Sensor) brings its entities in without a reload.
+            options = self.config_entry.options if self.config_entry else {}
+            present = capabilities.resolve(
+                datapoints,
+                forced_on=options.get(CONF_FORCE_ON, []),
+                forced_off=options.get(CONF_FORCE_OFF, []),
+            )
+
             result[serial] = {
                 "device": dev,
                 "datapoints": datapoints,
                 "connected": connected,
                 "health": summary,
+                "capabilities": {c.value for c in present},
             }
 
         if not result:

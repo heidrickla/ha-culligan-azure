@@ -48,6 +48,15 @@
       },
       "hardness": {
         "default": "mdi:water-percent"
+      },
+      "aquasensor_ratio": {
+        "default": "mdi:sine-wave"
+      },
+      "aquasensor_minimum": {
+        "default": "mdi:chart-bell-curve-cumulative"
+      },
+      "working_capacity": {
+        "default": "mdi:cup-water"
       }
     },
     "binary_sensor": {
@@ -71,6 +80,9 @@
       },
       "clock_wrong": {
         "default": "mdi:clock-alert"
+      },
+      "aquasensor_auto_rinse": {
+        "default": "mdi:water-sync"
       }
     },
     "switch": {

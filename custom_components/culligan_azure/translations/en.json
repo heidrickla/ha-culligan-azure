@@ -53,11 +53,15 @@
       "init": {
         "title": "Options",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "force_capabilities_on": "Always show",
+          "force_capabilities_off": "Never show"
         },
         "description": "How often to poll the Culligan cloud. A softener changes state slowly; short intervals add load to an undocumented API for no benefit.",
         "data_description": {
-          "scan_interval": "How often to poll the Culligan cloud, in seconds. The default is deliberately gentle: this is an undocumented third-party API and a softener changes slowly."
+          "scan_interval": "How often to poll the Culligan cloud, in seconds. The default is deliberately gentle: this is an undocumented third-party API and a softener changes slowly.",
+          "force_capabilities_on": "Hardware this softener has that was not detected automatically. Detection reads a group as present as soon as any of its datapoints reports a non-zero value, so this is only needed for a unit whose hardware reports nothing but is genuinely fitted.",
+          "force_capabilities_off": "Hardware to hide even if detected. Takes precedence over 'Always show'."
         }
       }
     }
@@ -155,6 +159,15 @@
       },
       "last_power_up": {
         "name": "Last power up"
+      },
+      "aquasensor_ratio": {
+        "name": "Aqua-Sensor ratio"
+      },
+      "aquasensor_minimum": {
+        "name": "Aqua-Sensor minimum"
+      },
+      "working_capacity": {
+        "name": "Working capacity"
       }
     },
     "binary_sensor": {
@@ -184,6 +197,9 @@
       },
       "clock_wrong": {
         "name": "Controller clock wrong"
+      },
+      "aquasensor_auto_rinse": {
+        "name": "Aqua-Sensor auto rinse"
       }
     },
     "switch": {
@@ -237,6 +253,16 @@
           "name": "Serial number",
           "description": "Device serial, e.g. GBX1-0000AA000W000000000"
         }
+      }
+    }
+  },
+  "selector": {
+    "capability": {
+      "options": {
+        "aqua_sensor": "Aqua-Sensor",
+        "second_tank": "Second tank",
+        "chem_feed": "Chemical feed",
+        "external_filter": "External filter"
       }
     }
   }
