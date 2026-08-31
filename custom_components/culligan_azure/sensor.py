@@ -418,11 +418,13 @@ async def async_setup_entry(
 
     def _build(serial: str, caps: set[str]) -> list[CulliganSensor]:
         """Sensors for one capability group - or the ungated ones when empty."""
+        # None stands for "needs no capability", so the ungated entities are
+        # built exactly once - with the empty group.
+        wanted: set[str | None] = set(caps) if caps else {None}
         return [
             CulliganSensor(coordinator, serial, desc)
             for desc in SENSORS
-            if (desc.capability.value if desc.capability else None)
-            in (caps or {None})
+            if (desc.capability.value if desc.capability else None) in wanted
         ]
 
     async_add_capability_entities(entry, coordinator, async_add_entities, _build)
