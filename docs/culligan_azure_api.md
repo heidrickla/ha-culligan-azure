@@ -74,6 +74,46 @@ integration** — one request yields device identity plus every sensor.
     flow_profile_r2_minutes .. r5_minutes
     rssi                                       device wifi signal
 
+### Accessory datapoints, and detecting what is fitted
+
+The controller reports the same ~182 datapoints whatever hardware is attached.
+Absent accessories read **0**, which is indistinguishable from a real zero
+until you know the group. Read live from the house GBX1 (`GBX1-...401`,
+`GBX V3.08`) on 2026-08-31 — every group below reads zero on that unit:
+
+    aquasensor_z_ratio_current_tank_1 / _tank_2    Aqua-Sensor conductivity ratio
+    aquasensor_z_min_tank_1 / _tank_2              its running minimum
+    aquasensor_auto_rinse_enabled                  Aqua-Sensor auto-rinse setting
+    total_capacity_volume_tank_1 / _tank_2         capacity DERIVED from the sensor
+
+    unit_status_tank_2, capacity_remaining_tank_2,
+    total_water_usage_since_install_tank_2,
+    days_since_last_regen_tank_2                   second tank (twin units)
+
+    chem_feed_mode, chem_feed_capacity_remaining,
+    chem_feed_alarm_capacity                       chemical feed
+
+    external_filter_mode, external_filter_capacity_remaining,
+    external_filter_alarm_capacity,
+    filter_media_life, media_life_remaining        external filter
+
+⚠ **This is why `capacity_remaining_tank_1` reads negative.** With no
+Aqua-Sensor the derived `total_capacity_volume_tank_1` is 0, and the controller
+reports `capacity_remaining_tank_1` as **-515** on the live unit. Anything built
+on that field must be gated on the sensor being present, or it publishes a
+confident wrong number.
+
+Related but NOT an accessory flag: `hardness_type` (0 on this unit) and
+`hardness_value` (10) are the programmed influent-hardness path the controller
+uses *instead of* an Aqua-Sensor. `accessories_enable_bit_flags` is 0 here; its
+bit layout is **unknown** and was deliberately not guessed.
+
+`capabilities.py` implements the detection: a group is present when **any** of
+its datapoints is present and non-zero. That direction cannot hide hardware
+that reports real values. The reverse is unproven — no unit with these
+accessories was available to read — so the options flow can force any group on
+or off.
+
 ## Control — the write path
 
     POST /api/v1/device/command
