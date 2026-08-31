@@ -34,20 +34,20 @@ SHIP = os.path.join(
 # ---------------------------------------------------------------- palette
 # The real unit is charcoal, not silver: a narrow resin tank with the valve
 # head on top, beside a wider brine tank.
-TANK_LIT = (104, 110, 118)     # cylinder highlight, lit from the left
+TANK_LIT = (104, 110, 118)  # cylinder highlight, lit from the left
 TANK_MID = (72, 78, 86)
-TANK_DARK = (38, 42, 48)       # cylinder edges, in shadow
-BRINE_LIT = (92, 98, 106)      # brine tank reads slightly flatter than the
-BRINE_MID = (62, 68, 75)       # resin tank - larger radius, less curvature
+TANK_DARK = (38, 42, 48)  # cylinder edges, in shadow
+BRINE_LIT = (92, 98, 106)  # brine tank reads slightly flatter than the
+BRINE_MID = (62, 68, 75)  # resin tank - larger radius, less curvature
 BRINE_DARK = (32, 36, 41)
-HEAD_TOP = (222, 226, 232)     # valve head casting, pale grey
+HEAD_TOP = (222, 226, 232)  # valve head casting, pale grey
 HEAD_BOT = (168, 175, 184)
 HEAD_EDGE = (132, 140, 150)
-SCREEN_TOP = (58, 150, 226)    # control display blue
+SCREEN_TOP = (58, 150, 226)  # control display blue
 SCREEN_BOT = (24, 86, 158)
-COLLAR = (46, 52, 60)          # collar where the head meets the tank
+COLLAR = (46, 52, 60)  # collar where the head meets the tank
 WHITE = (255, 255, 255)
-INK = (28, 34, 44)             # wordmark on light backgrounds
+INK = (28, 34, 44)  # wordmark on light backgrounds
 
 
 def vgrad(size, top, bot):
@@ -123,14 +123,14 @@ def draw_device(canvas_w, canvas_h, variant="tank"):
     img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    base_y = int(canvas_h * 0.92)          # both tanks stand on this line
+    base_y = int(canvas_h * 0.92)  # both tanks stand on this line
     gap = int(canvas_w * 0.025)
 
     # Resin tank: narrow and tall, topped by the valve head.
     res_w = int(canvas_w * 0.30)
     res_top = int(canvas_h * 0.30)
     res_x0 = int(canvas_w * 0.10)
-    res_r = res_w // 2                     # fully round top = cylinder
+    res_r = res_w // 2  # fully round top = cylinder
 
     # Brine tank: wider, and its shoulder sits lower than the resin tank's.
     brine_w = int(canvas_w * 0.42)
@@ -147,64 +147,110 @@ def draw_device(canvas_w, canvas_h, variant="tank"):
     # Contact shadow under both tanks so they sit on a surface.
     sh = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
     ImageDraw.Draw(sh).ellipse(
-        [res_x0 - int(canvas_w * 0.03), base_y - int(canvas_h * 0.025),
-         brine_x0 + brine_w + int(canvas_w * 0.03), base_y + int(canvas_h * 0.040)],
+        [
+            res_x0 - int(canvas_w * 0.03),
+            base_y - int(canvas_h * 0.025),
+            brine_x0 + brine_w + int(canvas_w * 0.03),
+            base_y + int(canvas_h * 0.040),
+        ],
         fill=(0, 0, 0, 70),
     )
     img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(canvas_h * 0.016)))
 
     # Brine tank first, so the resin tank and head overlap in front of it.
-    paste_cylinder(img, (brine_x0, brine_top, brine_x0 + brine_w, base_y),
-                   brine_r, BRINE_LIT, BRINE_MID, BRINE_DARK)
+    paste_cylinder(
+        img,
+        (brine_x0, brine_top, brine_x0 + brine_w, base_y),
+        brine_r,
+        BRINE_LIT,
+        BRINE_MID,
+        BRINE_DARK,
+    )
     # Lid seam near the top of the brine tank.
     seam = brine_top + int((base_y - brine_top) * 0.13)
-    d.line([(brine_x0 + int(brine_w * 0.10), seam),
-            (brine_x0 + brine_w - int(brine_w * 0.10), seam)],
-           fill=BRINE_DARK, width=max(1, canvas_w // 240))
+    d.line(
+        [
+            (brine_x0 + int(brine_w * 0.10), seam),
+            (brine_x0 + brine_w - int(brine_w * 0.10), seam),
+        ],
+        fill=BRINE_DARK,
+        width=max(1, canvas_w // 240),
+    )
 
     # Resin tank.
-    paste_cylinder(img, (res_x0, res_top, res_x0 + res_w, base_y),
-                   res_r, TANK_LIT, TANK_MID, TANK_DARK)
+    paste_cylinder(
+        img,
+        (res_x0, res_top, res_x0 + res_w, base_y),
+        res_r,
+        TANK_LIT,
+        TANK_MID,
+        TANK_DARK,
+    )
 
     # Collar where the head bolts onto the tank.
     collar_h = max(3, int(canvas_h * 0.022))
     d.rounded_rectangle(
-        [res_x0 - int(res_w * 0.04), res_top - collar_h // 2,
-         res_x0 + res_w + int(res_w * 0.04), res_top + collar_h],
-        collar_h // 2, fill=COLLAR,
+        [
+            res_x0 - int(res_w * 0.04),
+            res_top - collar_h // 2,
+            res_x0 + res_w + int(res_w * 0.04),
+            res_top + collar_h,
+        ],
+        collar_h // 2,
+        fill=COLLAR,
     )
 
     # Valve head.
-    paste_rounded_grad(img, (head_x0, head_y0, head_x0 + head_w, head_y0 + head_h),
-                       head_r, HEAD_TOP, HEAD_BOT)
-    d.rounded_rectangle([head_x0, head_y0, head_x0 + head_w, head_y0 + head_h],
-                        head_r, outline=HEAD_EDGE, width=max(1, canvas_w // 300))
+    paste_rounded_grad(
+        img,
+        (head_x0, head_y0, head_x0 + head_w, head_y0 + head_h),
+        head_r,
+        HEAD_TOP,
+        HEAD_BOT,
+    )
+    d.rounded_rectangle(
+        [head_x0, head_y0, head_x0 + head_w, head_y0 + head_h],
+        head_r,
+        outline=HEAD_EDGE,
+        width=max(1, canvas_w // 300),
+    )
 
     # Blue control display on the head face.
     sw = int(head_w * 0.52)
     sh_ = int(head_h * 0.44)
     sx0 = head_x0 + (head_w - sw) // 2
     sy0 = head_y0 + int(head_h * 0.24)
-    paste_rounded_grad(img, (sx0, sy0, sx0 + sw, sy0 + sh_),
-                       max(2, sh_ // 4), SCREEN_TOP, SCREEN_BOT)
+    paste_rounded_grad(
+        img, (sx0, sy0, sx0 + sw, sy0 + sh_), max(2, sh_ // 4), SCREEN_TOP, SCREEN_BOT
+    )
 
     # Two readout bars, so it reads as a display rather than a blue sticker.
     bar_h = max(2, sh_ // 6)
     for i, frac in enumerate((0.66, 0.42)):
         y = sy0 + int(sh_ * (0.26 + i * 0.36))
         d.rounded_rectangle(
-            [sx0 + int(sw * 0.15), y,
-             sx0 + int(sw * 0.15) + int(sw * 0.70 * frac), y + bar_h],
-            bar_h // 2, fill=(255, 255, 255, 225),
+            [
+                sx0 + int(sw * 0.15),
+                y,
+                sx0 + int(sw * 0.15) + int(sw * 0.70 * frac),
+                y + bar_h,
+            ],
+            bar_h // 2,
+            fill=(255, 255, 255, 225),
         )
 
     # Bypass valve stub on the left of the head, as on the real unit.
     stub_w = int(head_w * 0.16)
     stub_h = int(head_h * 0.34)
     d.rounded_rectangle(
-        [head_x0 - stub_w // 2, head_y0 + int(head_h * 0.22),
-         head_x0 + stub_w // 2, head_y0 + int(head_h * 0.22) + stub_h],
-        stub_w // 3, fill=SCREEN_BOT,
+        [
+            head_x0 - stub_w // 2,
+            head_y0 + int(head_h * 0.22),
+            head_x0 + stub_w // 2,
+            head_y0 + int(head_h * 0.22) + stub_h,
+        ],
+        stub_w // 3,
+        fill=SCREEN_BOT,
     )
     return img
 
@@ -217,7 +263,12 @@ def make_icon(variant, master=2048):
 
 
 def _font(size):
-    for name in ("segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf", "Arial Bold.ttf"):
+    for name in (
+        "segoeuib.ttf",
+        "arialbd.ttf",
+        "DejaVuSans-Bold.ttf",
+        "Arial Bold.ttf",
+    ):
         try:
             return ImageFont.truetype(name, size)
         except OSError:
@@ -245,8 +296,12 @@ def make_logo(variant, dark=False, master_h=1024):
     d.text((tx, ty), "Culligan", font=f, fill=color)
 
     fs = _font(int(master_h * 0.155))
-    d.text((tx + 4, ty + int(master_h * 0.46)), "water softener",
-           font=fs, fill=(color[0], color[1], color[2], 190))
+    d.text(
+        (tx + 4, ty + int(master_h * 0.46)),
+        "water softener",
+        font=fs,
+        fill=(color[0], color[1], color[2], 190),
+    )
     return img
 
 
@@ -265,8 +320,9 @@ def _fit(img, size):
     out = Image.new("RGBA", size, (0, 0, 0, 0))
     src = trim(img)
     scale = min(size[0] / src.width, size[1] / src.height)
-    new = src.resize((max(1, int(src.width * scale)), max(1, int(src.height * scale))),
-                     Image.LANCZOS)
+    new = src.resize(
+        (max(1, int(src.width * scale)), max(1, int(src.height * scale))), Image.LANCZOS
+    )
     out.alpha_composite(new, ((size[0] - new.width) // 2, (size[1] - new.height) // 2))
     return out
 
