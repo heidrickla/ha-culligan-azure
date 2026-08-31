@@ -33,7 +33,8 @@
     "abort": {
       "already_configured": "This account is already set up.",
       "another_account": "Those credentials are for a different account. Add it as a new entry instead.",
-      "reconfigure_successful": "Culligan has been reconfigured."
+      "reconfigure_successful": "Culligan has been reconfigured.",
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "options": {
