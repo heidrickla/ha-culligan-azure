@@ -158,7 +158,7 @@ async def test_aqua_sensor_entities_are_absent_on_a_unit_without_one(
     assert hass.states.get("sensor.softener_working_capacity") is None
     assert hass.states.get("sensor.softener_capacity_remaining") is None
     # An ungated sensor is still there, so this is not just a failed setup.
-    assert hass.states.get("sensor.softener_water_today") is not None
+    assert hass.states.get("sensor.softener_water_used_today") is not None
 
 
 async def test_aqua_sensor_entities_appear_when_the_sensor_reports(hass, config_entry):
