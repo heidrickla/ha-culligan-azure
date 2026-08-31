@@ -29,3 +29,8 @@ warn_unused_ignores = false
 module = "tests.*"
 strict = false
 disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+# pytest-homeassistant-custom-component's `hass` fixture is async and
+# pytest does not handle async fixtures natively.
+asyncio_mode = "auto"
