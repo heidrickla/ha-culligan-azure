@@ -1,14 +1,21 @@
 """Unit tests for the derived health metrics. No Home Assistant required.
 
-    python test_health.py
+python test_health.py
 """
 
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..", "custom_components", "culligan_azure"))
-import health  # noqa: E402
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "custom_components",
+        "culligan_azure",
+    ),
+)
+import health
 
 FAILURES = []
 
@@ -54,15 +61,17 @@ HEALTHY = {
 print("=== real device (over-regenerating) ===")
 check("recent_regens_per_day", health.recent_regens_per_day(REAL), 1.0)
 check("actual_days_between_regens", health.actual_days_between_regens(REAL), 1.0)
-check("expected_days_between_regens",
-      round(health.expected_days_between_regens(REAL), 3), 4.902)
+check(
+    "expected_days_between_regens",
+    round(health.expected_days_between_regens(REAL), 3),
+    4.902,
+)
 check("regen_efficiency_ratio", round(health.regen_efficiency_ratio(REAL), 3), 0.204)
 check("is_over_regenerating", health.is_over_regenerating(REAL), True)
 check("excess_regens_per_year", round(health.excess_regens_per_year(REAL)), 291)
 check("error_count", health.error_count(REAL), 4)
 check("most_common_error", health.most_common_error(REAL), (20, 3))
-check("last_error_is_newest",
-      health.last_error(REAL)["date"], "2023-08-25 03:12:07")
+check("last_error_is_newest", health.last_error(REAL)["date"], "2023-08-25 03:12:07")
 check("service_overdue", health.service_overdue(REAL), True)
 check("clock_is_wrong_after_fix", health.clock_is_wrong(REAL, 2026), False)
 
@@ -77,23 +86,45 @@ check("healthy_error_count", health.error_count(HEALTHY), 0)
 check("healthy_no_common_error", health.most_common_error(HEALTHY), None)
 
 print("\n=== clock detection ===")
-check("clock_wrong_when_years_behind",
-      health.clock_is_wrong({"last_power_up_time": "2023-11-06 02:24:00"}, 2026), True)
-check("clock_sentinel_ignored",
-      health.clock_is_wrong({"last_power_up_time": "0000-00-00 00:00:00"}, 2026), None)
+check(
+    "clock_wrong_when_years_behind",
+    health.clock_is_wrong({"last_power_up_time": "2023-11-06 02:24:00"}, 2026),
+    True,
+)
+check(
+    "clock_sentinel_ignored",
+    health.clock_is_wrong({"last_power_up_time": "0000-00-00 00:00:00"}, 2026),
+    None,
+)
 check("clock_missing_is_none", health.clock_is_wrong({}, 2026), None)
 
 print("\n=== degenerate inputs must not raise or lie ===")
 check("empty_ratio", health.regen_efficiency_ratio({}), None)
-check("zero_usage", health.expected_days_between_regens(
-    {"total_capacity": 1000, "average_daily_use": 0}), None)
-check("zero_days_install", health.regens_per_day(
-    {"total_regens_since_install": 5, "days_since_install": 0}), None)
-check("string_numbers_coerced", health.regens_per_day(
-    {"total_regens_since_install": "10", "days_since_install": "5"}), 2.0)
+check(
+    "zero_usage",
+    health.expected_days_between_regens(
+        {"total_capacity": 1000, "average_daily_use": 0}
+    ),
+    None,
+)
+check(
+    "zero_days_install",
+    health.regens_per_day({"total_regens_since_install": 5, "days_since_install": 0}),
+    None,
+)
+check(
+    "string_numbers_coerced",
+    health.regens_per_day(
+        {"total_regens_since_install": "10", "days_since_install": "5"}
+    ),
+    2.0,
+)
 check("errors_not_a_list", health.error_count({"errors": "nope"}), None)
-check("summary_on_empty_is_safe",
-      health.summary({}, now_year=2026)["over_regenerating"], None)
+check(
+    "summary_on_empty_is_safe",
+    health.summary({}, now_year=2026)["over_regenerating"],
+    None,
+)
 
 print()
 if FAILURES:
