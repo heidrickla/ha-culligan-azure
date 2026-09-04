@@ -1,6 +1,11 @@
 """Constants for the Culligan (Azure) integration."""
 
 DOMAIN = "culligan_azure"
+# Kept equal to manifest.json's version; tools/validate_local.py checks it.
+VERSION = "0.3.0"
+
+SERVICE_BYPASS_TIMED = "bypass_timed"
+SERVICE_SET_CLOCK = "set_clock"
 
 
 # The app polls telemetry every ~10-20s while a device screen is open. That is

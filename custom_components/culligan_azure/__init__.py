@@ -26,7 +26,12 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .api import CulliganApiClient
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    SERVICE_BYPASS_TIMED,
+    SERVICE_SET_CLOCK,
+)
 from .coordinator import (
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -44,9 +49,6 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.SWITCH,
 ]
-
-SERVICE_BYPASS_TIMED = "bypass_timed"
-SERVICE_SET_CLOCK = "set_clock"
 
 BYPASS_TIMED_SCHEMA = vol.Schema(
     {
