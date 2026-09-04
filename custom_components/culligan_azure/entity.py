@@ -54,7 +54,8 @@ class CulliganEntity(CoordinatorEntity[CulliganCoordinator]):
             manufacturer=MANUFACTURER,
             name=dev.get("name") or f"Culligan {self._serial}",
             model=dev.get("model") or dp.get("unit_type"),
+            # The Wi-Fi module's firmware is firmware too, not a hardware
+            # revision; diagnostics report it.
             sw_version=dp.get("gbx_firmware_version"),
-            hw_version=dp.get("wifi_module_fw_version"),
             serial_number=self._serial,
         )
