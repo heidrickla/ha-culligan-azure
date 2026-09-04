@@ -181,8 +181,10 @@ keeps narrowing for months. Until then the resin sensors are unavailable and the
 |---|---|
 | `insufficient_data` | Fewer samples than a fit needs |
 | `collecting` | Samples exist but the span is too short to extrapolate |
+| `invalid_baseline` | The earliest samples show zero or negative capacity; the history is unusable until it is reset |
+| `no_trend` | The samples do not fit a line; keeps collecting |
 | `no_degradation_detected` | A flat trend; the sensor stays unavailable rather than claiming infinite life |
-| `low_confidence` | A trend, but a noisy one; *Resin replacement due* does not fire on it |
+| `low_confidence` | A trend, but a noisy one; *Resin replacement due* reads off on it, never on |
 | `ok` | A confident measured trend |
 | `at_end_of_life` | The measured capacity has reached the 60 % floor |
 
