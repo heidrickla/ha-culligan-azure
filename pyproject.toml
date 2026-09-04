@@ -9,9 +9,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 "tests/*" = ["S101", "E501"]
 
 # Home Assistant runs mypy in strict mode over integrations claiming the
-# strict-typing rule.
+# strict-typing rule. The Tests workflow runs this with Home Assistant
+# installed, which is the check that counts; on a machine without it every
+# class Home Assistant exports is Any and the run says little.
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 disallow_untyped_defs = true
@@ -19,11 +21,6 @@ disallow_any_generics = true
 no_implicit_reexport = true
 ignore_missing_imports = true
 follow_imports = "silent"
-# Relaxed only because Home Assistant is not installed here: without it every
-# class it exports is Any.
-disallow_subclassing_any = false
-disallow_untyped_decorators = false
-warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -31,6 +28,7 @@ strict = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 # pytest-homeassistant-custom-component's `hass` fixture is async and
 # pytest does not handle async fixtures natively.
 asyncio_mode = "auto"

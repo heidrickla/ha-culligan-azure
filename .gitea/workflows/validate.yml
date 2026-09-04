@@ -1,7 +1,7 @@
 name: Validate
 
-# Runs on the self-hosted act_runner on gpurack2. GitHub Actions is unavailable
-# (spend cap) and this hardware is already paid for.
+# Runs on the self-hosted act_runner on gpurack2. GitHub is the primary CI
+# (.github/workflows/tests.yml and validate.yml); this is the forge's copy.
 #
 # THE RUNNER IS SHARED AND ITS CAPACITY IS 1. Other agent sessions queue behind
 # anything pushed here, so an ordinary push runs ONE fast job. Anything that
@@ -19,66 +19,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned: an unpinned linter makes CI non-reproducible, and this exact
-      # failure has already been paid for once on the sleepiq repo.
-      - name: Install ruff (PINNED)
+      # The runner image ships Python 3.10, which cannot parse the PEP 695
+      # `type X = ...` alias in coordinator.py; the validator needs newer.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Pinned: an unpinned linter makes CI non-reproducible.
+      - name: Install (PINNED)
         run: |
-          python3 -m pip install --quiet --upgrade pip
-          python3 -m pip install --quiet "ruff==0.15.21"
-          python3 -m ruff --version
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet "ruff==0.15.21" "PyYAML==6.0.2"
+          python -m ruff --version
 
       - name: Ruff
         run: |
-          python3 -m ruff check .
-          python3 -m ruff format --check .
+          python -m ruff check .
+          python -m ruff format --check .
 
-      # No ast.parse step here on purpose. The runner image ships Python
-      # 3.10.12 and this integration uses PEP 695 `type X = ...`, which that
-      # interpreter cannot parse. Ruff already parses every file at py313.
       - name: JSON is valid
         run: |
           for f in custom_components/culligan_azure/*.json hacs.json; do
-            python3 -c "import json,sys; json.load(open(sys.argv[1],encoding='utf-8'))" "$f" || exit 1
+            python -c "import json,sys; json.load(open(sys.argv[1],encoding='utf-8'))" "$f" || exit 1
           done
           echo "all JSON valid"
 
-      - name: Manifest sanity
+      - name: Pure tests
         run: |
-          python3 - <<'PY'
-          import json
-          m = json.load(open("custom_components/culligan_azure/manifest.json", encoding="utf-8"))
-          missing = [k for k in ("domain","name","version","documentation","codeowners") if not m.get(k)]
-          assert not missing, f"manifest missing: {missing}"
-          assert m["domain"] == "culligan_azure", m["domain"]
-          # A custom integration without a version silently fails to load.
-          assert m["version"], "version is required for a custom integration"
-          print("manifest ok:", m["domain"], m["version"])
-          PY
+          python -m pip install --quiet "pytest==9.0.3"
+          python -m pytest tests/test_health.py tests/test_resin.py tests/test_capabilities.py -q
 
-      - name: Quality scale is complete and honest
-        run: |
-          python3 -m pip install --quiet "PyYAML==6.0.2"
-          python3 - <<'PY'
-          import json, yaml
-          rules = yaml.safe_load(open(
-              "custom_components/culligan_azure/quality_scale.yaml", encoding="utf-8"))["rules"]
-          todo = sorted(k for k, v in rules.items()
-                        if isinstance(v, dict) and v.get("status") == "todo")
-          for name, v in rules.items():
-              if isinstance(v, dict):
-                  assert v.get("status") in {"done","todo","exempt"}, name
-                  assert str(v.get("comment","")).strip(), f"{name}: needs a reason"
-              else:
-                  assert v == "done", name
-          claimed = json.load(open(
-              "custom_components/culligan_azure/manifest.json", encoding="utf-8")
-          ).get("quality_scale")
-          assert not (claimed and todo), f"manifest claims {claimed} with todo: {todo}"
-          print(f"{len(rules)} rules; still todo: {', '.join(todo) or 'none'}")
-          PY
+      # Manifest, translations, icons, actions, exceptions and the quality
+      # scale against the pinned rule list.
+      - name: Offline validator
+        run: python tools/validate_local.py
 
   # Installs Home Assistant, so it is manual only and never occupies the shared
-  # runner on an ordinary push. This is the job that runs tests/ha/.
+  # runner on an ordinary push. Mirrors the GitHub Tests job.
   home-assistant:
     name: Home Assistant layer
     if: github.event_name == 'workflow_dispatch'
@@ -86,26 +63,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The runner image ships 3.10; Home Assistant needs 3.13.
+      # Home Assistant 2026.x needs Python 3.14.
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
 
       - name: Install
         run: |
           python -m pip install --quiet --upgrade pip
-          python -m pip install --quiet \
-            pytest pytest-asyncio "mypy==1.18.2" \
-            pytest-homeassistant-custom-component
-
-      - name: Unit tests
-        run: |
-          for t in tests/test_*.py; do
-            echo "-- $t"; python "$t" || exit 1
-          done
+          python -m pip install --quiet "mypy==1.18.2" \
+            "pytest-homeassistant-custom-component==0.13.357"
 
       - name: Home Assistant layer tests
-        run: python -m pytest tests/ha -q
+        run: >
+          python -m pytest tests/ha -q
+          --cov=custom_components/culligan_azure --cov-report=term-missing
 
       - name: mypy strict
         run: python -m mypy custom_components/culligan_azure
@@ -116,9 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: home-assistant/actions/hassfest@master
-        continue-on-error: true
-      - uses: hacs/action@main
-        continue-on-error: true
+      - uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb # master
+      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration

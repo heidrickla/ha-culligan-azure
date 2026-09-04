@@ -1,0 +1,79 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Nothing here writes to the repo, publishes, or comments on a PR.
+permissions: {}
+
+# A push that supersedes an in-flight run makes that run's answer irrelevant.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+# Gitea's act_runner also picks up .github/workflows, so the job is gated to
+# GitHub. On the forge it skips instantly and .gitea/workflows/validate.yml is
+# the one that runs.
+jobs:
+  tests:
+    if: github.server_url == 'https://github.com'
+    name: Lint, tests, mypy, validator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Home Assistant 2026.x needs Python 3.14.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      # 0.13.357 pins Home Assistant 2026.8.3; it brings pytest, its asyncio
+      # and aiohttp plugins, pytest-cov and PyYAML with it (pinning those
+      # again here makes pip's resolution impossible).
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "mypy==1.18.2" "ruff==0.15.21" \
+            "pytest-homeassistant-custom-component==0.13.357"
+
+      - run: ruff check .
+      - run: ruff format --check .
+
+      # The pure suite runs without the Home Assistant plugin so it stays a
+      # check on the maths alone.
+      - name: Pure tests
+        run: >
+          python -m pytest tests/test_health.py tests/test_resin.py
+          tests/test_capabilities.py -q -p no:homeassistant
+
+      # Coverage is reported, not gated: the 95% gate lands once the api and
+      # platform action tests bring the figure up.
+      - name: Home Assistant layer tests
+        run: >
+          python -m pytest tests/ha -q
+          --cov=custom_components/culligan_azure --cov-report=term-missing
+
+      - name: mypy strict
+        run: python -m mypy custom_components/culligan_azure
+
+      - name: Offline validator
+        run: python tools/validate_local.py
+
+      # Proves the material that must never be committed is absent. Markdown
+      # is excluded because documentation legitimately quotes key-shaped
+      # examples.
+      - name: No private keys or env files committed
+        run: |
+          set -euo pipefail
+          bad=0
+          keyfiles=$(git ls-files | grep -iE '(^|/)\.env$|\.pem$|\.p12$|\.pfx$|(^|/)id_(rsa|ed25519)$' || true)
+          if [ -n "$keyfiles" ]; then
+            echo "::error::a key or .env file is tracked in git"; echo "$keyfiles"; bad=1
+          fi
+          hits=$(git grep -lIE 'BEGIN (RSA|EC|OPENSSH|PGP|DSA) PRIVATE KEY' -- . ':!*.md' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::a private key block is committed"; echo "$hits"; bad=1
+          fi
+          exit $bad
