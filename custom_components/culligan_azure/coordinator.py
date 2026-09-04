@@ -58,6 +58,9 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._resin_history: dict[str, list[dict[str, float]]] = {}
         self._history_loaded = False
+        # Serials whose /device/data fallback is currently failing, so the
+        # failure is logged once on loss and once on recovery, not every poll.
+        self._fallback_failing: set[str] = set()
 
     async def async_load_history(self) -> None:
         """Load persisted resin samples. Must run before the first refresh."""
@@ -91,9 +94,17 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except CulliganAuthError as err:
             # Credentials genuinely rejected -- prompt the user to reauth rather
             # than retrying forever with a password that will never work.
-            raise ConfigEntryAuthFailed(str(err)) from err
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="auth_rejected",
+                translation_placeholders={"error": str(err)},
+            ) from err
         except CulliganError as err:
-            raise UpdateFailed(f"registry poll failed: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="poll_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
         now_year = dt_util.now().year
         result: dict[str, Any] = {}
@@ -108,8 +119,16 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     datapoints = await self.client.async_get_datapoints(serial)
                 except CulliganError as err:
-                    _LOGGER.warning("telemetry fetch failed for %s: %s", serial, err)
+                    if serial not in self._fallback_failing:
+                        self._fallback_failing.add(serial)
+                        _LOGGER.warning(
+                            "telemetry fetch failed for %s: %s", serial, err
+                        )
                     datapoints = {}
+                else:
+                    if serial in self._fallback_failing:
+                        self._fallback_failing.discard(serial)
+                        _LOGGER.info("telemetry fetch for %s recovered", serial)
 
             connected = dev.get("status", {}).get("connection", {}).get("online")
             if connected is None:
@@ -160,7 +179,7 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
 
         if not result:
-            raise UpdateFailed("no devices returned")
+            raise UpdateFailed(translation_domain=DOMAIN, translation_key="no_devices")
         return result
 
     async def async_flush_history(self) -> None:
