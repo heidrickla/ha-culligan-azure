@@ -121,9 +121,7 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except CulliganError as err:
                     if serial not in self._fallback_failing:
                         self._fallback_failing.add(serial)
-                        _LOGGER.warning(
-                            "telemetry fetch failed for %s: %s", serial, err
-                        )
+                        _LOGGER.info("telemetry fetch failed for %s: %s", serial, err)
                     datapoints = {}
                 else:
                     if serial in self._fallback_failing:
