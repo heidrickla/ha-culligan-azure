@@ -1,9 +1,6 @@
 {
   "entity": {
     "sensor": {
-      "current_flow_rate": {
-        "default": "mdi:water"
-      },
       "capacity_remaining": {
         "default": "mdi:gauge"
       },
@@ -112,5 +109,9 @@
         "default": "mdi:shaker-outline"
       }
     }
+  },
+  "services": {
+    "bypass_timed": "mdi:water-off",
+    "set_clock": "mdi:clock-check"
   }
 }
