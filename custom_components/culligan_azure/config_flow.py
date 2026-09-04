@@ -27,9 +27,28 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 
-STEP_USER_SCHEMA = vol.Schema(
-    {vol.Required(CONF_EMAIL): str, vol.Required(CONF_PASSWORD): str}
+EMAIL_SELECTOR = selector.TextSelector(
+    selector.TextSelectorConfig(type=selector.TextSelectorType.EMAIL)
 )
+PASSWORD_SELECTOR = selector.TextSelector(
+    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+)
+
+STEP_USER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_EMAIL): EMAIL_SELECTOR,
+        vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR,
+    }
+)
+# The password is optional here: left blank, the stored one is kept, so the
+# form never has to show or prefill a secret.
+STEP_RECONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_EMAIL): EMAIL_SELECTOR,
+        vol.Optional(CONF_PASSWORD): PASSWORD_SELECTOR,
+    }
+)
+STEP_REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR})
 
 
 async def _validate(
@@ -44,7 +63,7 @@ async def _validate(
 
 # `domain=` is real on Home Assistant's ConfigFlow; it only looks wrong when
 # HA is absent and the base class degrades to `object`.
-class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg, unused-ignore]
     """Handle setup and reauthentication."""
 
     VERSION = 1
@@ -87,8 +106,9 @@ class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
         entry = self._get_reconfigure_entry()
         if user_input is not None:
             email = user_input[CONF_EMAIL].strip()
+            password = user_input.get(CONF_PASSWORD) or entry.data[CONF_PASSWORD]
             try:
-                devices = await _validate(self.hass, email, user_input[CONF_PASSWORD])
+                devices = await _validate(self.hass, email, password)
             except CulliganAuthError:
                 errors["base"] = "invalid_auth"
             except CulliganError:
@@ -100,17 +120,13 @@ class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
                     await self.async_set_unique_id(email.lower())
                     self._abort_if_unique_id_mismatch(reason="another_account")
                     return self.async_update_reload_and_abort(
-                        entry,
-                        data={
-                            CONF_EMAIL: email,
-                            CONF_PASSWORD: user_input[CONF_PASSWORD],
-                        },
+                        entry, data={CONF_EMAIL: email, CONF_PASSWORD: password}
                     )
 
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
-                STEP_USER_SCHEMA, {CONF_EMAIL: entry.data[CONF_EMAIL]}
+                STEP_RECONFIGURE_SCHEMA, {CONF_EMAIL: entry.data[CONF_EMAIL]}
             ),
             errors=errors,
         )
@@ -140,9 +156,7 @@ class CulliganConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
                 )
 
         return self.async_show_form(
-            step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
-            errors=errors,
+            step_id="reauth_confirm", data_schema=STEP_REAUTH_SCHEMA, errors=errors
         )
 
     @staticmethod
