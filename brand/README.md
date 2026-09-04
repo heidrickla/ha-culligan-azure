@@ -3,10 +3,10 @@
 The integration's icon/logo PNGs live in
 [`custom_components/culligan_azure/brand/`](../custom_components/culligan_azure/brand/),
 where Home Assistant 2026.3+'s Brands Proxy API serves them directly — local
-brand images take priority over the brands CDN with no configuration, so no
-home-assistant/brands submission is needed (that repo stopped accepting
-custom-integration PRs in Feb 2026). On older HA versions the folder is simply
-inert.
+brand images take priority over the brands CDN with no configuration, so a
+HACS install needs no home-assistant/brands submission. On older Home Assistant
+versions the folder is inert and the placeholder icon shows, which is why
+`hacs.json` sets 2026.3.0 as the minimum.
 
 `icon.png` and `icon@2x.png` are also copied here at the repository root.
 HACS's publishing requirements ask for "a `brand` directory in your repository
