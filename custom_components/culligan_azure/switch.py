@@ -13,8 +13,8 @@ from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 from .health import as_number
 
-# One coordinator polls; entities do no I/O of their own.
-PARALLEL_UPDATES = 0
+# Reads come from the coordinator; commands go to the cloud one at a time.
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
@@ -83,10 +83,8 @@ class CulliganBypassSwitch(CulliganEntity, SwitchEntity):
         # actual_state_dealer_bypass is the closest observable bypass indicator.
         # It was 0 throughout testing and no bypass state was captured while
         # active, so treat a missing value as unknown rather than off.
-        v = self.datapoints.get("actual_state_dealer_bypass")
-        if v is None:
-            return None
-        return bool(v)
+        v = as_number(self.datapoints, "actual_state_dealer_bypass")
+        return None if v is None else bool(v)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self.coordinator.async_send_and_refresh(
