@@ -78,6 +78,15 @@
     },
     "auth_failed": {
       "message": "Culligan rejected the stored credentials ({error}); re-authentication has been started."
+    },
+    "auth_rejected": {
+      "message": "Culligan rejected the stored credentials: {error}"
+    },
+    "poll_failed": {
+      "message": "Polling the Culligan cloud failed: {error}"
+    },
+    "no_devices": {
+      "message": "The Culligan cloud returned no devices for this account."
     }
   },
   "entity": {
