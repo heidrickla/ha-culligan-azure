@@ -76,7 +76,8 @@ rules:
     comment: |
       The coordinator logs the poll failing once and recovering once. The
       /device/data fallback for firmware that omits properties does the
-      same per device rather than warning on every poll.
+      same per device, at info on loss and on recovery, rather than logging
+      on every poll.
   parallel-updates:
     status: done
     comment: |
