@@ -1,6 +1,4 @@
-"""Capability detection tests.
-
-    python tests/test_capabilities.py
+"""Capability detection.
 
 Pure module, no Home Assistant. The absent-hardware cases are the REAL readings
 from a GBX1 with no Aqua-Sensor, single tank, no chem feed and no external
@@ -10,18 +8,11 @@ asymmetry is the point of the "any non-zero means present" rule, which cannot
 hide a sensor that reports real values.
 """
 
-import importlib.util
-import pathlib
-import sys
+import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-COMP = ROOT / "custom_components" / "culligan_azure"
+from .pure import load
 
-_spec = importlib.util.spec_from_file_location("caps", COMP / "capabilities.py")
-assert _spec and _spec.loader
-caps = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(caps)
-
+caps = load("capabilities")
 Capability = caps.Capability
 
 # Verbatim from the live unit: every accessory datapoint reads zero.
@@ -52,124 +43,62 @@ REAL_ABSENT = {
     "capacity_remaining_tank_1": -515,
 }
 
-CHECKS: list[tuple[str, bool]] = []
 
-
-def check(name: str, got: object, want: object) -> None:
-    ok = got == want
-    CHECKS.append((name, ok))
-    print(f"  {'PASS' if ok else 'FAIL'}  {name}: got {got!r}, want {want!r}")
-
-
-def main() -> int:
-    print("absent hardware (real readings)")
-    check("nothing detected", caps.detect(REAL_ABSENT), set())
-
-    print("\nthe -515 case this exists to prevent")
+def test_the_real_unit_has_no_accessories():
+    assert caps.detect(REAL_ABSENT) == set()
     # capacity_remaining is gated on the Aqua-Sensor precisely because the
-    # controller reports it as negative when the derived capacity is 0.
-    check(
-        "aqua sensor absent so capacity is not shown",
-        Capability.AQUA_SENSOR in caps.detect(REAL_ABSENT),
-        False,
-    )
+    # controller reports it as -515 when the derived capacity is 0.
+    assert Capability.AQUA_SENSOR not in caps.detect(REAL_ABSENT)
 
-    print("\npresent hardware")
-    check(
-        "a reading Aqua-Sensor is detected",
-        Capability.AQUA_SENSOR
-        in caps.detect({**REAL_ABSENT, "aquasensor_z_ratio_current_tank_1": 0.82}),
-        True,
-    )
-    check(
-        "a derived working capacity alone is enough",
-        Capability.AQUA_SENSOR
-        in caps.detect({**REAL_ABSENT, "total_capacity_volume_tank_1": 1109}),
-        True,
-    )
-    check(
-        "a second tank in service is detected",
-        Capability.SECOND_TANK in caps.detect({**REAL_ABSENT, "unit_status_tank_2": 1}),
-        True,
-    )
-    check(
-        "chem feed is detected",
-        Capability.CHEM_FEED in caps.detect({**REAL_ABSENT, "chem_feed_mode": 2}),
-        True,
-    )
-    check(
-        "external filter is detected",
-        Capability.EXTERNAL_FILTER
-        in caps.detect({**REAL_ABSENT, "media_life_remaining": 340}),
-        True,
-    )
 
-    print("\ndegenerate values must not read as present")
-    check("empty datapoints", caps.detect({}), set())
-    check(
-        "the zero-date sentinel is absent",
-        caps.detect({"last_regen_date_time_tank_2": "0000-00-00 00:00:00"}),
-        set(),
-    )
-    check(
-        "a string zero is absent",
-        caps.detect({"chem_feed_mode": "0"}),
-        set(),
-    )
-    check(
-        "a string number is present",
-        Capability.CHEM_FEED in caps.detect({"chem_feed_mode": "2"}),
-        True,
-    )
-    check(
-        "false is absent",
-        caps.detect({"aquasensor_auto_rinse_enabled": False}),
-        set(),
-    )
+@pytest.mark.parametrize(
+    ("key", "value", "capability"),
+    [
+        ("aquasensor_z_ratio_current_tank_1", 0.82, Capability.AQUA_SENSOR),
+        ("total_capacity_volume_tank_1", 1109, Capability.AQUA_SENSOR),
+        ("unit_status_tank_2", 1, Capability.SECOND_TANK),
+        ("chem_feed_mode", 2, Capability.CHEM_FEED),
+        ("media_life_remaining", 340, Capability.EXTERNAL_FILTER),
+    ],
+)
+def test_one_non_zero_indicator_is_enough(key, value, capability):
+    assert capability in caps.detect({**REAL_ABSENT, key: value})
 
-    print("\nuser overrides")
-    check(
-        "forcing on adds it",
-        Capability.AQUA_SENSOR in caps.resolve(REAL_ABSENT, forced_on=["aqua_sensor"]),
-        True,
-    )
-    check(
-        "forcing off removes a detected one",
-        Capability.CHEM_FEED
-        in caps.resolve({**REAL_ABSENT, "chem_feed_mode": 2}, forced_off=["chem_feed"]),
-        False,
-    )
-    check(
-        "off beats on",
-        caps.resolve(
-            REAL_ABSENT, forced_on=["aqua_sensor"], forced_off=["aqua_sensor"]
-        ),
-        set(),
-    )
-    check(
-        "an unknown override name is ignored",
-        caps.resolve(REAL_ABSENT, forced_on=["not_a_capability"]),
-        set(),
-    )
 
-    print("\nevidence for diagnostics")
+@pytest.mark.parametrize(
+    "datapoints",
+    [
+        {},
+        {"last_regen_date_time_tank_2": "0000-00-00 00:00:00"},
+        {"chem_feed_mode": "0"},
+        {"aquasensor_auto_rinse_enabled": False},
+    ],
+)
+def test_degenerate_values_do_not_read_as_present(datapoints):
+    assert caps.detect(datapoints) == set()
+
+
+def test_a_string_number_is_present():
+    assert Capability.CHEM_FEED in caps.detect({"chem_feed_mode": "2"})
+
+
+def test_user_overrides():
+    assert Capability.AQUA_SENSOR in caps.resolve(
+        REAL_ABSENT, forced_on=["aqua_sensor"]
+    )
+    assert Capability.CHEM_FEED not in caps.resolve(
+        {**REAL_ABSENT, "chem_feed_mode": 2}, forced_off=["chem_feed"]
+    )
+    # Off beats on: turning something off is the explicit request.
+    assert (
+        caps.resolve(REAL_ABSENT, forced_on=["aqua_sensor"], forced_off=["aqua_sensor"])
+        == set()
+    )
+    assert caps.resolve(REAL_ABSENT, forced_on=["not_a_capability"]) == set()
+
+
+def test_evidence_reports_every_group_with_its_readings():
     ev = caps.evidence(REAL_ABSENT)
-    check("every group reported", sorted(ev), sorted(c.value for c in Capability))
-    check("aqua sensor marked absent", ev["aqua_sensor"]["present"], False)
-    check(
-        "the readings behind the verdict are included",
-        ev["aqua_sensor"]["indicators"]["aquasensor_z_ratio_current_tank_1"],
-        0,
-    )
-
-    failed = [n for n, ok in CHECKS if not ok]
-    print(f"\n{len(CHECKS) - len(failed)}/{len(CHECKS)} checks passed")
-    if failed:
-        print("FAILED:", ", ".join(failed))
-        return 1
-    print("all checks passed")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    assert sorted(ev) == sorted(c.value for c in Capability)
+    assert ev["aqua_sensor"]["present"] is False
+    assert ev["aqua_sensor"]["indicators"]["aquasensor_z_ratio_current_tank_1"] == 0
