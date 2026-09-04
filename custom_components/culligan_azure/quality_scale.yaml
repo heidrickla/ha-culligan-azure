@@ -1,23 +1,46 @@
+# Status of every Integration Quality Scale rule, checked against the pinned
+# list in tools/validate_local.py. `todo` means the rule is not met and says
+# why; `exempt` is used only where the rule page allows it. A custom
+# integration builds to these rules and claims no tier in its manifest.
+#
+# The Home Assistant layer tests, mypy and the validator run in the GitHub
+# `Tests` workflow (.github/workflows/tests.yml) on every push.
 rules:
   # Bronze
-  action-setup: done
-  appropriate-polling: done
-  brands: done
+  action-setup:
+    status: done
+    comment: |
+      Both actions are registered in async_setup, so a call while the entry
+      is unloaded gets the translated not_loaded refusal instead of an
+      unknown-service error.
+  appropriate-polling:
+    status: done
+    comment: |
+      120 seconds by default, 30 at the least. One GET /device/registry per
+      poll returns every device and all its telemetry.
+  brands:
+    status: done
+    comment: |
+      Brand images ship in-repo at custom_components/culligan_azure/brand/,
+      which Home Assistant serves from 2026.3.0; hacs.json sets that floor so
+      no supported install shows the placeholder.
   common-modules: done
   config-flow-test-coverage:
     status: done
     comment: |
       tests/ha/test_config_flow.py covers the user step, a trimmed and
-      lowercased email, both login failures, an account with no devices, the
-      duplicate abort, reconfigure including the another_account guard, reauth
-      and the options flow. Run by the `Home Assistant layer` job of
-      .gitea/workflows/validate.yml on the self-hosted runner.
+      lowercased email, every error branch followed by recovery to
+      CREATE_ENTRY or the abort, the duplicate abort, reconfigure including
+      the another_account guard and the blank-password case, reauth in both
+      outcomes and recovery, and the options flow with every field. Coverage
+      is reported by the Tests job.
   config-flow: done
   dependency-transparency:
-    status: exempt
+    status: done
     comment: |
-      No external dependencies. The Azure API is spoken to over aiohttp
-      directly.
+      requirements is empty. The Azure API is spoken to over Home
+      Assistant's own aiohttp session, so there is nothing to be transparent
+      about.
   docs-actions: done
   docs-conditions:
     status: exempt
@@ -30,7 +53,9 @@ rules:
     comment: This integration does not provide triggers.
   entity-event-setup:
     status: exempt
-    comment: Entities do not subscribe to events of their own.
+    comment: |
+      Entities do not subscribe to events of their own; the coordinator
+      subscription is CoordinatorEntity's, made in async_added_to_hass.
   entity-unique-id: done
   has-entity-name: done
   runtime-data: done
@@ -45,21 +70,40 @@ rules:
   docs-installation-parameters: done
   entity-unavailable: done
   integration-owner: done
-  log-when-unavailable: done
-  parallel-updates: done
-  reauthentication-flow: done
-  test-coverage:
+  log-when-unavailable:
     status: done
     comment: |
-      The resin-health calculations have unit tests that run on any
-      interpreter. tests/ha/ adds the Home Assistant layer: setup, the device
-      and its entities, a failing poll, rejected credentials starting reauth,
-      unload, the two services and the poll-interval option. Both suites run
-      in CI.
+      The coordinator logs the poll failing once and recovering once. The
+      /device/data fallback for firmware that omits properties does the
+      same per device rather than warning on every poll.
+  parallel-updates:
+    status: done
+    comment: |
+      0 on sensor and binary_sensor, which only read the coordinator; 1 on
+      button, number and switch, which each send a cloud command.
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: |
+      Not measured at 95% yet. api.py has no tests of its own, and the
+      button, number and switch actions and diagnostics.py are not
+      exercised. The Tests job reports coverage; the gate lands when the
+      figure is up.
 
   # Gold
-  devices: done
-  diagnostics: done
+  devices:
+    status: done
+    comment: |
+      One device per softener with manufacturer, model, controller firmware
+      as sw_version and the serial. The Wi-Fi module firmware is in
+      diagnostics, not hw_version.
+  diagnostics:
+    status: done
+    comment: |
+      Config with the credentials redacted, options, poll interval and, per
+      device by position rather than serial, connection, model, both
+      firmware versions, detected capabilities with the readings behind each
+      verdict, the datapoint names and the derived health values.
   discovery:
     status: exempt
     comment: |
@@ -77,26 +121,51 @@ rules:
   docs-use-cases: done
   dynamic-devices: done
   entity-category: done
-  entity-device-class: done
-  entity-disabled-by-default:
-    status: exempt
+  entity-device-class:
+    status: todo
     comment: |
-      Every entity corresponds to a datapoint the appliance actually reports;
-      none is noisy enough to warrant hiding.
+      The day and minute sensors have no DURATION device class and the
+      gallon measurement sensors no VOLUME. Wave 2 work.
+  entity-disabled-by-default:
+    status: done
+    comment: |
+      Wi-Fi signal, last power up, lifetime regeneration count, lifetime
+      capacity average and both raw Aqua-Sensor readings are registered
+      disabled.
   entity-translations: done
-  exception-translations: done
-  icon-translations: done
+  exception-translations:
+    status: done
+    comment: |
+      Every ConfigEntryAuthFailed, UpdateFailed, HomeAssistantError and
+      ServiceValidationError carries a translation key; the validator
+      refuses a raise without one.
+  icon-translations:
+    status: done
+    comment: |
+      Entities with a device class take its icon. The four problem-class
+      binary sensors keep distinct icons so a device page with several
+      problems tells them apart at a glance.
   reconfiguration-flow: done
   repair-issues:
-    status: exempt
+    status: todo
     comment: |
-      Authentication failure raises a reauth flow. No other condition needs
-      user intervention.
-  stale-devices: done
+      Authentication failure raises a reauth flow. The controller clock
+      being wrong is user-fixable through set_clock and is surfaced only as
+      a problem sensor; a repair issue with a fix flow is wave 2 work.
+  stale-devices:
+    status: todo
+    comment: |
+      Softeners that leave the account are removed at setup only, not on
+      later polls, and there is no async_remove_config_entry_device. Wave 2
+      work.
 
   # Platinum
   async-dependency:
     status: exempt
     comment: No external dependency; aiohttp is used directly.
   inject-websession: done
-  strict-typing: done
+  strict-typing:
+    status: todo
+    comment: |
+      mypy --strict with Home Assistant installed runs in the Tests job with
+      no relaxations. Marked done once that job is green on main.
