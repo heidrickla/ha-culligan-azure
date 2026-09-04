@@ -31,7 +31,8 @@ rules:
       tests/ha/test_config_flow.py covers the user step, a trimmed and
       lowercased email, every error branch followed by recovery to
       CREATE_ENTRY or the abort, the duplicate abort, reconfigure including
-      the another_account guard and the blank-password case, reauth in both
+      its own no_devices branch, the another_account guard and the
+      blank-password case, reauth in both
       outcomes and recovery, and the options flow with every field. Coverage
       is reported by the Tests job.
   config-flow: done

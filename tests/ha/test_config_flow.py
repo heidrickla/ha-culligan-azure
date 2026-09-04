@@ -230,6 +230,33 @@ async def test_reconfigure_recovers_from_an_error(hass, config_entry, raised):
     assert config_entry.data[CONF_PASSWORD] == "newsecret"
 
 
+async def test_reconfigure_recovers_from_an_empty_account(hass, config_entry):
+    """Credentials that work but own no devices must not be saved over the
+    ones that do; the form stays open and the corrected input goes through."""
+    config_entry.add_to_hass(hass)
+    login, devices = _ok(devices=[])
+    with login, devices:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": "reconfigure", "entry_id": config_entry.entry_id},
+            data={CONF_EMAIL: EMAIL, CONF_PASSWORD: "newsecret"},
+        )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "no_devices"}
+    assert config_entry.data[CONF_PASSWORD] == "secret"
+
+    login, devices = _ok()
+    with login, devices:
+        done = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_EMAIL: EMAIL, CONF_PASSWORD: "newsecret"}
+        )
+        # The abort schedules a reload; let it run while the API is patched.
+        await hass.async_block_till_done()
+    assert done["type"] is FlowResultType.ABORT
+    assert done["reason"] == "reconfigure_successful"
+    assert config_entry.data[CONF_PASSWORD] == "newsecret"
+
+
 async def test_reconfigure_keeps_the_stored_password_when_left_blank(
     hass, config_entry
 ):
