@@ -57,9 +57,9 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
         key="regenerating",
         translation_key="regenerating",
         # time_rem_in_position counts down only while a cycle is running.
-        value_fn=lambda dp, _h, _e: bool(
-            isinstance(dp.get("time_rem_in_position"), (int, float))
-            and dp["time_rem_in_position"] > 0
+        # Absent means unknown, as everywhere else here, not "not running".
+        value_fn=lambda dp, _h, _e: (
+            None if (v := as_number(dp, "time_rem_in_position")) is None else v > 0
         ),
     ),
     CulliganBinaryDescription(
@@ -91,11 +91,6 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
             "expected_days_between_regens": h.get("expected_days_between_regens"),
             "efficiency_ratio": h.get("regen_efficiency_ratio"),
             "excess_regens_per_year": h.get("excess_regens_per_year"),
-            "meaning": (
-                "The unit is regenerating far more often than its capacity and "
-                "measured usage imply. Usually a hardness, resin-capacity or "
-                "flow-meter configuration problem. Costs salt and water."
-            ),
         },
     ),
     CulliganBinaryDescription(
@@ -155,14 +150,7 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda _dp, h, _e: h.get("clock_is_wrong"),
-        attrs_fn=lambda dp, _h: {
-            "last_power_up_time": dp.get("last_power_up_time"),
-            "meaning": (
-                "The valve controller keeps its own clock, separate from the "
-                "wifi module's NTP-synced one, and nothing syncs it. If this is "
-                "on, call the culligan_azure.set_clock service."
-            ),
-        },
+        attrs_fn=lambda dp, _h: {"last_power_up_time": dp.get("last_power_up_time")},
     ),
 )
 

@@ -1,20 +1,24 @@
 """Setup, teardown, services, and what a failing poll does to the entry."""
 
+import logging
 from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.culligan_azure.api import CulliganAuthError, CulliganError
 from custom_components.culligan_azure.const import DOMAIN
 
 from .conftest import DEVICE, SERIAL
 
-LOGIN = "custom_components.culligan_azure.api.CulliganApiClient.async_login"
-DEVICES = "custom_components.culligan_azure.api.CulliganApiClient.async_get_devices"
-BYPASS = "custom_components.culligan_azure.api.CulliganApiClient.async_bypass_timed"
+CLIENT = "custom_components.culligan_azure.api.CulliganApiClient"
+LOGIN = f"{CLIENT}.async_login"
+DEVICES = f"{CLIENT}.async_get_devices"
+DATAPOINTS = f"{CLIENT}.async_get_datapoints"
+BYPASS = f"{CLIENT}.async_bypass_timed"
 
 
 async def _setup(hass, entry, devices=None, side_effect=None):
@@ -45,6 +49,80 @@ async def test_setup_creates_the_device_and_its_entities(hass, config_entry):
 async def test_a_failing_poll_leaves_the_entry_retrying(hass, config_entry):
     await _setup(hass, config_entry, side_effect=CulliganError("gateway timeout"))
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_an_empty_device_list_is_a_failed_poll(hass, config_entry):
+    """Zero devices from a working login is a read failure, not an emptied
+    account; the entry retries rather than loading with nothing."""
+    await _setup(hass, config_entry, devices=[])
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_noisy_diagnostics_are_registered_but_disabled(hass, config_entry):
+    """Wi-Fi signal and the other niche diagnostics exist in the registry so a
+    user can switch them on, and have no state until they do."""
+    await _setup(hass, config_entry)
+    registry = er.async_get(hass)
+    for key in ("rssi", "last_power_up", "regens_lifetime", "resin_capacity_lifetime"):
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_{key}")
+        assert entity_id is not None, key
+        entry = registry.async_get(entity_id)
+        assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION, key
+        assert hass.states.get(entity_id) is None, key
+
+
+async def test_a_string_zero_bypass_flag_reads_as_off(hass, config_entry):
+    """The API returns numbers as strings on some fields, and bool("0") is
+    True. The switch must read the number, not the truthiness."""
+    device = {
+        **DEVICE,
+        "properties": {**DEVICE["properties"], "actual_state_dealer_bypass": "0"},
+    }
+    await _setup(hass, config_entry, devices=[device])
+    assert hass.states.get("switch.softener_bypass").state == "off"
+
+
+async def test_regenerating_is_unknown_until_the_timer_is_reported(hass, config_entry):
+    await _setup(hass, config_entry)
+    assert hass.states.get("binary_sensor.softener_regenerating").state == "unknown"
+
+
+async def test_regenerating_is_on_while_the_position_timer_runs(hass, config_entry):
+    device = {
+        **DEVICE,
+        "properties": {**DEVICE["properties"], "time_rem_in_position": 12},
+    }
+    await _setup(hass, config_entry, devices=[device])
+    assert hass.states.get("binary_sensor.softener_regenerating").state == "on"
+
+
+async def test_a_failing_telemetry_fallback_is_logged_once(hass, config_entry, caplog):
+    """Older firmware omits `properties`; the /device/data fallback failing
+    is logged on loss and on recovery, not on every poll in between."""
+    bare = {k: v for k, v in DEVICE.items() if k != "properties"}
+    caplog.set_level(logging.INFO, logger="custom_components.culligan_azure")
+    config_entry.add_to_hass(hass)
+    with (
+        patch(LOGIN, return_value=None),
+        patch(DEVICES, return_value=[bare]),
+        patch(DATAPOINTS, side_effect=CulliganError("HTTP 502")),
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = config_entry.runtime_data
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+    assert config_entry.state is ConfigEntryState.LOADED
+    assert caplog.text.count("telemetry fetch failed") == 1
+
+    with (
+        patch(LOGIN, return_value=None),
+        patch(DEVICES, return_value=[bare]),
+        patch(DATAPOINTS, return_value=DEVICE["properties"]),
+    ):
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+    assert caplog.text.count("telemetry fetch for GBX0001234 recovered") == 1
 
 
 async def test_rejected_credentials_start_a_reauth_flow(hass, config_entry):
@@ -154,9 +232,13 @@ async def test_aqua_sensor_entities_are_absent_on_a_unit_without_one(
     """
     await _setup(hass, config_entry)
 
-    assert hass.states.get("sensor.softener_aqua_sensor_ratio") is None
     assert hass.states.get("sensor.softener_working_capacity") is None
     assert hass.states.get("sensor.softener_capacity_remaining") is None
+    registry = er.async_get(hass)
+    assert (
+        registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_aquasensor_ratio")
+        is None
+    )
     # An ungated sensor is still there, so this is not just a failed setup.
     assert hass.states.get("sensor.softener_water_used_today") is not None
 
@@ -177,9 +259,13 @@ async def test_aqua_sensor_entities_appear_when_the_sensor_reports(hass, config_
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.softener_aqua_sensor_ratio").state == "0.82"
     assert hass.states.get("sensor.softener_working_capacity").state == "1109"
     assert hass.states.get("sensor.softener_capacity_remaining").state == "640"
+    # The raw ratio is registered too, disabled until someone wants it.
+    registry = er.async_get(hass)
+    ratio = registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_aquasensor_ratio")
+    assert ratio is not None
+    assert registry.async_get(ratio).disabled_by is er.RegistryEntryDisabler.INTEGRATION
 
 
 async def test_a_user_can_force_a_capability_on(hass, config_entry):
@@ -201,6 +287,7 @@ async def test_a_user_can_force_a_detected_capability_off(hass, config_entry):
         "properties": {
             **DEVICE["properties"],
             "aquasensor_z_ratio_current_tank_1": 0.82,
+            "total_capacity_volume_tank_1": 1109,
         },
     }
     config_entry.add_to_hass(hass)
@@ -211,4 +298,9 @@ async def test_a_user_can_force_a_detected_capability_off(hass, config_entry):
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.softener_aqua_sensor_ratio") is None
+    assert hass.states.get("sensor.softener_working_capacity") is None
+    registry = er.async_get(hass)
+    assert (
+        registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_aquasensor_ratio")
+        is None
+    )

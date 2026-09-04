@@ -10,8 +10,8 @@ from .coordinator import CulliganConfigEntry, CulliganCoordinator
 from .discovery import async_add_new_devices
 from .entity import CulliganEntity
 
-# One coordinator polls; entities do no I/O of their own.
-PARALLEL_UPDATES = 0
+# Reads come from the coordinator; commands go to the cloud one at a time.
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(

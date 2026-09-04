@@ -122,11 +122,14 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         value_fn=_dp("capacity_remaining_tank_1"),
     ),
     # --- Aqua-Sensor, only on units that have one ---
+    # The raw conductivity figures are for arguing with the detector, not for
+    # a dashboard, so they are registered disabled.
     CulliganSensorDescription(
         key="aquasensor_ratio",
         translation_key="aquasensor_ratio",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         capability=Capability.AQUA_SENSOR,
         suggested_display_precision=2,
         value_fn=_dp("aquasensor_z_ratio_current_tank_1"),
@@ -136,6 +139,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="aquasensor_minimum",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         capability=Capability.AQUA_SENSOR,
         suggested_display_precision=2,
         value_fn=_dp("aquasensor_z_min_tank_1"),
@@ -197,6 +201,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="regens_lifetime",
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # Also an attribute of Resin cycle age; a counter in the hundreds that
+        # moves once a day is registry noise for most people.
+        entity_registry_enabled_default=False,
         value_fn=_dp("total_regens_since_install"),
     ),
     # --- DERIVED HEALTH METRICS ---
@@ -232,11 +239,6 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         attrs_fn=lambda _dp, h: {
             "actual_days_between_regens": h.get("actual_days_between_regens"),
             "expected_days_between_regens": h.get("expected_days_between_regens"),
-            "interpretation": (
-                "100% = regenerating exactly as often as capacity implies; "
-                "below 100% = regenerating more often than needed, wasting "
-                "salt and backwash water"
-            ),
         },
     ),
     CulliganSensorDescription(
@@ -245,13 +247,6 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         value_fn=_hl("excess_regens_per_year"),
-        attrs_fn=lambda _dp, h: {
-            "note": (
-                "Regenerations beyond what capacity and usage imply. Multiply "
-                "by your salt dose and backwash volume per cycle to estimate "
-                "annual waste."
-            )
-        },
     ),
     # --- resin condition, measured over time ---
     # These stay unavailable until enough history accumulates. That is
@@ -262,27 +257,20 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         native_unit_of_measurement="years",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda _dp, h: (h.get("resin") or {}).get("years_remaining"),
+        # `status` says why a reading is unavailable; the README explains the
+        # method and the status values.
         attrs_fn=lambda _dp, h: {
-            **{
-                k: (h.get("resin") or {}).get(k)
-                for k in (
-                    "status",
-                    "samples",
-                    "windows",
-                    "span_days",
-                    "baseline_capacity",
-                    "current_capacity",
-                    "fade_per_year",
-                    "confidence",
-                )
-            },
-            "method": (
-                "Measured, not assumed. Windowed gallons-per-regeneration is "
-                "tracked over time and the decline extrapolated to 60% of the "
-                "observed baseline. Needs ~3 weeks of history before it reports; "
-                "accuracy improves for months afterwards. `status` explains any "
-                "unavailable reading."
-            ),
+            k: (h.get("resin") or {}).get(k)
+            for k in (
+                "status",
+                "samples",
+                "windows",
+                "span_days",
+                "baseline_capacity",
+                "current_capacity",
+                "fade_per_year",
+                "confidence",
+            )
         },
     ),
     CulliganSensorDescription(
@@ -294,9 +282,6 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         attrs_fn=lambda _dp, h: {
             "baseline_capacity": (h.get("resin") or {}).get("baseline_capacity"),
             "current_capacity": (h.get("resin") or {}).get("current_capacity"),
-            "note": (
-                "Percent drop in gallons treated per regeneration since tracking began."
-            ),
         },
     ),
     CulliganSensorDescription(
@@ -334,15 +319,6 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
                 else None
             ),
             "total_regens": dp.get("total_regens_since_install"),
-            "interpretation": (
-                "Years of NORMAL cycling the resin has experienced, from "
-                "regeneration count alone. Compare with calendar age: a higher "
-                "value means the resin is being cycled harder than it should be. "
-                "This covers osmotic shock and backwash attrition only -- "
-                "oxidation by chlorine scales with treated VOLUME, which "
-                "regeneration frequency does not change. So this is an upper "
-                "bound on accelerated ageing, not a total."
-            ),
         },
     ),
     CulliganSensorDescription(
@@ -351,6 +327,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # A lifetime average that barely moves; the windowed figure above is
+        # the one worth watching.
+        entity_registry_enabled_default=False,
         value_fn=lambda _dp, h: (
             round(h["resin_lifetime_capacity"], 1)
             if isinstance(h.get("resin_lifetime_capacity"), (int, float))
@@ -393,6 +372,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # Noisy and rarely wanted; the quality scale's own example of an
+        # entity to register disabled.
+        entity_registry_enabled_default=False,
         value_fn=_dp("rssi"),
     ),
     CulliganSensorDescription(
@@ -400,6 +382,9 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="last_power_up",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # Its job is done by the Controller clock wrong sensor, which carries
+        # the raw stamp as an attribute.
+        entity_registry_enabled_default=False,
         value_fn=_dp_dt("last_power_up_time"),
     ),
 )
