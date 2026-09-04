@@ -25,14 +25,14 @@
       },
       "reconfigure": {
         "title": "Reconfigure Culligan",
-        "description": "Sign in again, or switch to a different Culligan account.",
+        "description": "Change the password, or correct the email address of the same Culligan account.",
         "data": {
           "email": "Email",
           "password": "Password"
         },
         "data_description": {
           "email": "The email address of your Culligan Connect app account.",
-          "password": "The password for that account."
+          "password": "The password for that account. Leave blank to keep the stored one."
         }
       }
     },
