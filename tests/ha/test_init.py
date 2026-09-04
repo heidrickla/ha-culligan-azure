@@ -19,6 +19,8 @@ LOGIN = f"{CLIENT}.async_login"
 DEVICES = f"{CLIENT}.async_get_devices"
 DATAPOINTS = f"{CLIENT}.async_get_datapoints"
 BYPASS = f"{CLIENT}.async_bypass_timed"
+ANALYSE = "custom_components.culligan_azure.coordinator.resin.analyse"
+RESIN_DUE = "binary_sensor.softener_resin_replacement_due"
 
 
 async def _setup(hass, entry, devices=None, side_effect=None):
@@ -94,6 +96,49 @@ async def test_regenerating_is_on_while_the_position_timer_runs(hass, config_ent
     }
     await _setup(hass, config_entry, devices=[device])
     assert hass.states.get("binary_sensor.softener_regenerating").state == "on"
+
+
+async def _setup_with_resin(hass, entry, result):
+    entry.add_to_hass(hass)
+    with (
+        patch(LOGIN, return_value=None),
+        patch(DEVICES, return_value=[DEVICE]),
+        patch(ANALYSE, return_value=result),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_resin_replacement_due_reads_off_on_a_low_confidence_trend(
+    hass, config_entry
+):
+    """The README promises the problem sensor never fires on a noisy fit, even
+    one that extrapolates to under a year."""
+    await _setup_with_resin(
+        hass,
+        config_entry,
+        {"status": "low_confidence", "years_remaining": 0.4, "confidence": 0.1},
+    )
+    state = hass.states.get(RESIN_DUE)
+    assert state.state == "off"
+    assert state.attributes["status"] == "low_confidence"
+
+
+async def test_resin_replacement_due_fires_on_a_confident_trend_under_a_year(
+    hass, config_entry
+):
+    """The positive control for the low-confidence case above."""
+    await _setup_with_resin(
+        hass,
+        config_entry,
+        {"status": "ok", "years_remaining": 0.4, "confidence": 0.9},
+    )
+    assert hass.states.get(RESIN_DUE).state == "on"
+
+
+async def test_resin_replacement_due_is_unknown_while_collecting(hass, config_entry):
+    await _setup_with_resin(hass, config_entry, {"status": "collecting"})
+    assert hass.states.get(RESIN_DUE).state == "unknown"
 
 
 async def test_a_failing_telemetry_fallback_is_logged_once(hass, config_entry, caplog):

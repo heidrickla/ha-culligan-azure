@@ -38,6 +38,23 @@ def _fault_state(flags: float | None, days: float | None) -> bool | None:
     return bool(flags or days)
 
 
+def _resin_replacement_due(resin: dict[str, Any] | None) -> bool | None:
+    """Fire only on a confident measured trend under one year, or at the floor.
+
+    A low-confidence fit reads off rather than unknown: there is a trend, it is
+    just too noisy to alarm on. Anything still collecting stays unknown.
+    """
+    status = (resin or {}).get("status")
+    if status == "at_end_of_life":
+        return True
+    if status == "low_confidence":
+        return False
+    if status != "ok" or resin is None:
+        return None
+    years = resin.get("years_remaining")
+    return isinstance(years, (int, float)) and years < 1.0
+
+
 BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
     CulliganBinaryDescription(
         key="connected",
@@ -116,18 +133,7 @@ BINARY_SENSORS: tuple[CulliganBinaryDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         # Only fires on a measured, confident trend -- never on assumption, and
         # never while still collecting history.
-        value_fn=lambda _dp, h, _e: (
-            None
-            if (h.get("resin") or {}).get("status")
-            not in ("ok", "low_confidence", "at_end_of_life")
-            else (
-                (h["resin"]["status"] == "at_end_of_life")
-                or (
-                    isinstance(h["resin"].get("years_remaining"), (int, float))
-                    and h["resin"]["years_remaining"] < 1.0
-                )
-            )
-        ),
+        value_fn=lambda _dp, h, _e: _resin_replacement_due(h.get("resin")),
         attrs_fn=lambda _dp, h: {
             "years_remaining": (h.get("resin") or {}).get("years_remaining"),
             "capacity_fade_percent": (h.get("resin") or {}).get(
