@@ -41,22 +41,26 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
 
-      # The pure suite runs without the Home Assistant plugin so it stays a
-      # check on the maths alone.
+      # The pure suite runs without the Home Assistant plugin so the maths and
+      # the cloud client stay checkable on their own. Its coverage is carried
+      # into the run below rather than reported twice.
       - name: Pure tests
         run: >
           python -m pytest tests/test_health.py tests/test_resin.py
-          tests/test_capabilities.py -q -p no:homeassistant
+          tests/test_capabilities.py tests/test_api.py -q -p no:homeassistant
+          --cov=custom_components/culligan_azure --cov-report=
 
-      # Coverage is reported, not gated: the 95% gate lands once the api and
-      # platform action tests bring the figure up.
-      - name: Home Assistant layer tests
+      # The gate the test-coverage rule asks for, over both suites together.
+      - name: Home Assistant layer tests and the coverage gate
         run: >
           python -m pytest tests/ha -q
-          --cov=custom_components/culligan_azure --cov-report=term-missing
+          --cov=custom_components/culligan_azure --cov-append
+          --cov-report=term-missing --cov-fail-under=95
 
+      # Paths and settings come from pyproject, which scopes the run to the
+      # integration with no per-module relaxation.
       - name: mypy strict
-        run: python -m mypy custom_components/culligan_azure
+        run: python -m mypy
 
       - name: Offline validator
         run: python tools/validate_local.py
