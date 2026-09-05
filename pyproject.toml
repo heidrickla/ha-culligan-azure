@@ -16,14 +16,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 # `files` scopes the run to the integration, the way core scopes strict typing
 # per integration, so no per-module relaxation is needed to keep the test
 # harness out of it. `strict = true` is left to imply its own flags rather than
-# repeating them, and nothing is switched back off. The two disabled codes are
-# the ones core disables for dependencies that ship no stubs, and neither hides
-# an error in this integration's own code.
+# repeating them, and nothing is switched back off.
 [tool.mypy]
 python_version = "3.14"
 files = ["custom_components/culligan_azure"]
 strict = true
-disable_error_code = ["import-not-found", "import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
