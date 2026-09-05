@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     CONF_EMAIL,
     CONF_PASSWORD,
@@ -20,6 +21,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -38,7 +40,7 @@ from .coordinator import (
     CulliganConfigEntry,
     CulliganCoordinator,
 )
-from .discovery import async_remove_stale_devices
+from .discovery import async_track_stale_devices
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,10 +91,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> 
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
-    async_remove_stale_devices(hass, entry, coordinator)
+    async_track_stale_devices(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: CulliganConfigEntry, device: dr.DeviceEntry
+) -> bool:
+    """Allow deleting a device by hand once the account no longer lists it.
+
+    Automatic removal runs on every poll, but a poll that keeps failing never
+    gets to say a softener is gone. This is the manual way out; a serial the
+    account still returns is refused so a device cannot be deleted from under
+    its own live entities.
+    """
+    # An unloaded entry has no runtime_data at all, and knows no serials, so
+    # nothing it owns can be claimed to be still present.
+    loaded = entry.state is ConfigEntryState.LOADED
+    serials = (entry.runtime_data.data or {}) if loaded else {}
+    return not any(
+        identifier[1] in serials
+        for identifier in device.identifiers
+        if identifier[0] == DOMAIN
+    )
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> None:
