@@ -9,6 +9,8 @@ Home Assistant integration for Culligan water softeners on the **Azure IoT /
 `culliganiot.com`** backend — the newer hardware that the existing community
 integration cannot reach.
 
+What changed and when is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Why this exists
 
 Culligan moved newer softeners off Ayla Networks and onto an Azure IoT Hub. The
@@ -31,7 +33,13 @@ taken here.
 Any softener that appears in the Culligan Connect app and is served by
 `uniapi.culliganiot.com`. Every device on the account becomes one Home
 Assistant device; a softener added to the account later appears on the next
-poll without a reload.
+poll without a reload, and one that leaves the account disappears on the next
+poll that no longer lists it.
+
+The device page carries the manufacturer, the model, the serial number and the
+valve controller's firmware as the software version. The Wi-Fi module runs its
+own separate firmware; that is in the diagnostics download, not on the device
+page, because it is firmware and not a hardware revision.
 
 Tested against one **`GBX1` (Smart HE 9")**. Sibling device classes in the app
 (`Gbx2`, `Advantage`, `Mon`, `Sro`, `Nova`) suggest the API generalises, but
@@ -80,6 +88,11 @@ the [options](#options) can force a group on or off.
 
 Disabled entities are still registered. Enable one from its entity settings
 (Settings → Devices & services → the softener → the entity → the cog → Enabled).
+
+Units in the table are what the softener reports. The volume, duration, flow,
+timestamp and signal readings carry a device class, so a household set to
+metric sees litres and the rest converted to match; *Average daily use* does
+not, because it is gallons per day and no volume device class means that.
 
 ### Binary sensors
 
@@ -195,6 +208,10 @@ survive.
 
 ## Installation
 
+**Home Assistant 2026.3.0 or newer.** That is the first release which serves an
+integration's own brand images, and this integration ships its icon and logo
+in-repo; on anything older the icon would be a placeholder.
+
 **HACS** — add this repository as a custom repository (category: Integration),
 install, restart Home Assistant.
 
@@ -202,6 +219,9 @@ install, restart Home Assistant.
 `config/custom_components/`, restart.
 
 Then **Settings → Devices & services → Add integration → Culligan (Azure)**.
+
+There is no discovery to wait for. The softener has no local interface, so
+nothing on the network announces it and setup is always by hand.
 
 ### Installation parameters
 
@@ -239,12 +259,40 @@ When Culligan rejects the stored credentials — after a password change, say �
 the entry asks for the new password and reloads once it is accepted. Nothing
 else needs to be done.
 
+## Repairs
+
+Some conditions are worth more than a sensor because you can fix them in one
+click. They appear under **Settings → System → Repairs**.
+
+| Repair | When it appears | What Fix does |
+|---|---|---|
+| *The controller clock is wrong* | The softener's last power-up stamp is in the future, or two or more years in the past | Sets the valve controller's clock to Home Assistant's local time |
+
+The clock repair is raised per softener and clears itself on the poll that
+shows the clock right, or that shows the softener has left the account. If the
+command is refused — the unit is offline, say — the repair stays open rather
+than reporting a fix that did not happen. Rejected credentials do not raise a
+repair of their own: they start re-authentication, which Home Assistant already
+surfaces on the integration page.
+
+## Removing a softener
+
+A softener sold, moved to another account or deleted in the Culligan Connect
+app disappears from Home Assistant on the next poll that no longer lists it,
+along with its entities. A poll that fails removes nothing: an empty result is
+a failed read, not an emptied account.
+
+If polls keep failing and a device you no longer have is still listed, open it
+on the integration page and choose **Delete**. Home Assistant refuses that for
+a softener the account still returns, so a live device cannot be deleted from
+under its own entities.
+
 ## Removing the integration
 
 1. **Settings → Devices & services → Culligan (Azure)**, open the entry's menu
-   and choose **Delete**. This removes the devices and entities and deletes
-   the entry's resin-history store from `.storage`, so the measured resin
-   trend is gone with it.
+   and choose **Delete**. This removes the devices and entities, closes any
+   repairs it raised, and deletes the entry's resin-history store from
+   `.storage`, so the measured resin trend is gone with it.
 2. If you no longer want the code: in HACS, open Culligan (Azure) and choose
    **Remove**, or delete `config/custom_components/culligan_azure/` by hand.
    Restart Home Assistant.
@@ -378,10 +426,11 @@ invalidated the session. Enter the current app password once.
 The unit reported no Aqua-Sensor readings, so those entities were not created.
 If the hardware is fitted, add Aqua-Sensor under *Always show* in the options.
 
-**Controller clock wrong is on.** Press *Sync controller clock* or call
-`culligan_azure.set_clock`. The controller has no datapoint for its current
-time, so the sensor clears only after the unit next powers up; the
-`last_power_up_time` attribute shows the stamp it is judging by.
+**Controller clock wrong is on.** A repair appears under Settings → System →
+Repairs; **Fix** sets the clock. Pressing *Sync controller clock* or calling
+`culligan_azure.set_clock` does the same thing. The controller has no datapoint
+for its current time, so the sensor and the repair clear only after the unit
+next powers up; the `last_power_up_time` attribute shows the stamp being judged.
 
 **Regenerating shows unknown.** The unit has not reported the position timer
 yet. It becomes on or off with the next poll that includes it.
@@ -408,15 +457,24 @@ contain no credentials or serial numbers.
 ## Development
 
 ```
-python -m pytest tests/test_health.py tests/test_resin.py tests/test_capabilities.py -q
-python -m pytest tests/ha -q      # needs pytest-homeassistant-custom-component, Linux
-python -m mypy custom_components/culligan_azure
+python -m pytest tests/test_health.py tests/test_resin.py \
+    tests/test_capabilities.py tests/test_api.py -q
+python -m pytest tests/ha -q      # needs pytest-homeassistant-custom-component
+python -m mypy                    # settings and paths come from pyproject
 python tools/validate_local.py
 ```
 
-The GitHub `Tests` workflow runs all four on every push, plus `ruff`. The
-quality-scale status of every rule is in
-[`quality_scale.yaml`](custom_components/culligan_azure/quality_scale.yaml).
+The first suite needs no Home Assistant: it covers the derived maths, the
+capability detector and the cloud client, the last against a local HTTP server
+rather than a request mock. The second needs
+`pytest-homeassistant-custom-component`, which pins the Home Assistant release
+and its Python version, so it does not run on a machine without them.
+
+The GitHub `Tests` workflow runs both suites on every push under one coverage
+run and **fails under 95%**, then `mypy --strict`, the offline validator and
+`ruff`. The quality-scale status of every rule is in
+[`quality_scale.yaml`](custom_components/culligan_azure/quality_scale.yaml);
+the validator refuses a rule filed `done` whose mechanism is not in the tree.
 
 ## Disclaimer
 

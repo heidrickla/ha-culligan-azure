@@ -85,12 +85,13 @@ rules:
       button, number and switch, which each send a cloud command.
   reauthentication-flow: done
   test-coverage:
-    status: todo
+    status: done
     comment: |
-      Not measured at 95% yet. api.py has no tests of its own, and the
-      button, number and switch actions and diagnostics.py are not
-      exercised. The Tests job reports coverage; the gate lands when the
-      figure is up.
+      The Tests workflow measures the pure suite and the Home Assistant
+      suite together and fails under 95% (--cov-fail-under=95). api.py is
+      exercised against a local HTTP server, including the 401 re-auth and
+      its one-retry limit; every button, the number, both switches,
+      diagnostics and the repair flow have tests of their own.
 
   # Gold
   devices:
@@ -109,11 +110,16 @@ rules:
   discovery:
     status: exempt
     comment: |
-      Devices are enumerated from the account after login. There is nothing to
-      find on the local network.
+      The integration has no local protocol at all: softeners are addressed
+      through the vendor cloud and enumerated from the account after login.
+      Finding a unit on the network would give the config flow nothing it
+      can use - it still needs the account credentials, and the device list
+      still comes from the cloud.
   discovery-update-info:
     status: exempt
-    comment: Cloud polling; no local network information to update.
+    comment: |
+      Nothing local is stored to update. The entry holds an account, not a
+      host, and every request goes to uniapi.culliganiot.com.
   docs-data-update: done
   docs-examples: done
   docs-known-limitations: done
@@ -124,10 +130,14 @@ rules:
   dynamic-devices: done
   entity-category: done
   entity-device-class:
-    status: todo
+    status: done
     comment: |
-      The day and minute sensors have no DURATION device class and the
-      gallon measurement sensors no VOLUME. Wave 2 work.
+      DURATION on the day and minute sensors, VOLUME_STORAGE on the gallon
+      readings, WATER on the two consumption totals, plus flow rate,
+      timestamp and signal strength. VOLUME_STORAGE rather than VOLUME
+      because Home Assistant accepts only the total state classes with
+      VOLUME and these are measurements. Average daily use carries none:
+      it is gallons per day, and no volume class means that.
   entity-disabled-by-default:
     status: done
     comment: |
@@ -144,30 +154,41 @@ rules:
   icon-translations:
     status: done
     comment: |
-      Entities with a device class take its icon. The four problem-class
-      binary sensors keep distinct icons so a device page with several
-      problems tells them apart at a glance.
+      Every icon lives in icons.json; no entity sets one in code. Where
+      several entities on one device page would otherwise take the same
+      class icon - the four problem binary sensors, the actual and expected
+      regeneration intervals, the capacity readings - the override keeps
+      them apart at a glance.
   reconfiguration-flow: done
   repair-issues:
-    status: todo
+    status: done
     comment: |
-      Authentication failure raises a reauth flow. The controller clock
-      being wrong is user-fixable through set_clock and is surfaced only as
-      a problem sensor; a repair issue with a fix flow is wave 2 work.
+      A wrong controller clock raises a fixable repair per softener, and
+      confirming it sends the clock command (repairs.py, cleared on the poll
+      that shows the clock right or the softener gone). Rejected credentials
+      already start a reauthentication flow, which Home Assistant surfaces
+      itself; an account with no devices is a failed poll the entry retries,
+      and an issue for it would only be telling the user something is wrong.
   stale-devices:
-    status: todo
+    status: done
     comment: |
-      Softeners that leave the account are removed at setup only, not on
-      later polls, and there is no async_remove_config_entry_device. Wave 2
-      work.
+      A coordinator listener drops devices for softeners the account stops
+      returning, on every poll rather than only at setup, and
+      async_remove_config_entry_device lets the user delete one by hand when
+      polls keep failing. An empty poll result is treated as a failed read,
+      never as an emptied account.
 
   # Platinum
   async-dependency:
-    status: exempt
-    comment: No external dependency; aiohttp is used directly.
+    status: done
+    comment: |
+      There is no external dependency to be blocking: the client is in this
+      repo and speaks aiohttp throughout, so no call leaves the event loop.
   inject-websession: done
   strict-typing:
-    status: todo
+    status: done
     comment: |
-      mypy --strict with Home Assistant installed runs in the Tests job with
-      no relaxations. Marked done once that job is green on main.
+      pyproject sets mypy strict with nothing switched back off and scopes
+      the run to this integration, the way core scopes strict typing per
+      integration. The Tests workflow runs it with Home Assistant installed,
+      which is the run that counts.
