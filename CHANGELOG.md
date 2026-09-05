@@ -66,7 +66,7 @@ ship in-repo; on anything older the icon was a placeholder.
 ### Removed
 
 - The paragraphs of English explanation that shipped as state attributes are
-  gone: `interpretation` on *Regeneration efficiency* and *Over-regenerating*,
+  gone: `interpretation` on *Regeneration efficiency* and *Resin cycle age*,
   `note` on *Excess regenerations per year* and *Resin capacity fade*, `method`
   on *Resin life remaining*, and `meaning` on *Over-regenerating* and
   *Controller clock wrong*. Attributes are for values; those explanations are
