@@ -192,9 +192,8 @@ rules:
   strict-typing:
     status: done
     comment: |
-      pyproject sets mypy strict with nothing switched back off - no
-      follow_imports, no ignore_missing_imports - and scopes the run to this
-      integration, the way core scopes strict typing per integration. The
-      Tests workflow runs it with Home Assistant installed, which is the run
-      that counts, and the validator refuses this rule filed done if a
-      relaxation reappears.
+      pyproject sets mypy strict with nothing switched back off, and scopes
+      the run to this integration, the way core scopes strict typing per
+      integration. The Tests workflow runs it with Home Assistant installed,
+      which is the run that counts, and the validator refuses this rule filed
+      done if any of the settings in its MYPY_RELAXATIONS list reappears.

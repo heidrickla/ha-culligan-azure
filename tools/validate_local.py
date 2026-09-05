@@ -42,12 +42,16 @@ VALID_IOT_CLASS = {
     "calculated",
 }
 
-# mypy settings that take something back off strict. `follow_imports` is here
-# because it was once justified as harmless: with Home Assistant installed it
-# changes nothing, which makes it a relaxation carried for no reason.
+# mypy settings that take something back off strict. `follow_imports` and
+# `disable_error_code` are here because each was once justified as harmless:
+# with Home Assistant installed the run passes identically without them, which
+# makes them relaxations carried for no reason. `disable_error_code` is also
+# how `ignore_missing_imports` returns under another name, since
+# `import-untyped` is the code that setting suppresses.
 MYPY_RELAXATIONS = (
     "ignore_missing_imports",
     "follow_imports",
+    "disable_error_code",
     "allow_untyped_defs",
     "allow_untyped_calls",
     "allow_any_generics",
