@@ -107,12 +107,19 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         translation_key="average_daily_use",
         native_unit_of_measurement=GALLONS,
         state_class=SensorStateClass.MEASUREMENT,
+        # No volume device class fits: this is gallons PER DAY, and both VOLUME
+        # and VOLUME_STORAGE would declare it a volume standing still. Claiming
+        # one for the unit conversion alone would make the state say something
+        # it does not mean.
         value_fn=_dp("average_daily_use"),
     ),
     CulliganSensorDescription(
         key="capacity_remaining",
         translation_key="capacity_remaining",
         native_unit_of_measurement=GALLONS,
+        # VOLUME_STORAGE, not VOLUME: this is a volume that stands still and
+        # depletes, and VOLUME accepts only the total state classes.
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         # Counts down from the Aqua-Sensor's derived working capacity. On a
         # unit without the sensor that base is 0 and this reads NEGATIVE
@@ -148,6 +155,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="working_capacity",
         translation_key="working_capacity",
         native_unit_of_measurement=GALLONS,
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         # The capacity the controller derived from the sensor, which is what
         # replaces the programmed hardness figure on an Aqua-Sensor unit.
@@ -166,6 +174,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="days_salt_remaining",
         translation_key="days_salt_remaining",
         native_unit_of_measurement=UnitOfTime.DAYS,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("days_salt_remaining"),
     ),
@@ -174,6 +183,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="regen_time_remaining",
         translation_key="regen_time_remaining",
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("time_rem_in_position"),
     ),
@@ -181,6 +191,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="days_since_last_regen",
         translation_key="days_since_last_regen",
         native_unit_of_measurement=UnitOfTime.DAYS,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_dp("days_since_last_regen_tank_1"),
     ),
@@ -213,6 +224,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="actual_regen_interval",
         translation_key="actual_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
         value_fn=_hl("actual_days_between_regens"),
@@ -221,6 +233,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="expected_regen_interval",
         translation_key="expected_regen_interval",
         native_unit_of_measurement=UnitOfTime.DAYS,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
         value_fn=_hl("expected_days_between_regens"),
@@ -288,6 +301,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="resin_capacity_current",
         translation_key="resin_capacity_current",
         native_unit_of_measurement=GALLONS,
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda _dp, h: (h.get("resin") or {}).get("current_capacity"),
     ),
@@ -325,6 +339,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="resin_capacity_lifetime",
         translation_key="resin_capacity_lifetime",
         native_unit_of_measurement=GALLONS,
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         # A lifetime average that barely moves; the windowed figure above is
@@ -354,6 +369,7 @@ SENSORS: tuple[CulliganSensorDescription, ...] = (
         key="days_since_service",
         translation_key="days_since_service",
         native_unit_of_measurement=UnitOfTime.DAYS,
+        device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_dp("days_since_last_service"),
