@@ -89,6 +89,13 @@ the [options](#options) can force a group on or off.
 Disabled entities are still registered. Enable one from its entity settings
 (Settings → Devices & services → the softener → the entity → the cog → Enabled).
 
+State attributes carry values, not prose. Up to 0.3.0 several of these entities
+also carried a paragraph of English explanation as an attribute —
+`interpretation`, `note`, `method`, `meaning`. Those are gone; the explanations
+are in this file instead, under [Health metrics](#health-metrics) and
+[Resin life](#resin-life--measured-not-assumed), so a template that referenced
+one has somewhere to read.
+
 Units in the table are what the softener reports. The volume, duration, flow,
 timestamp and signal readings carry a device class, so a household set to
 metric sees litres and the rest converted to match; *Average daily use* does
@@ -267,6 +274,10 @@ click. They appear under **Settings → System → Repairs**.
 | Repair | When it appears | What Fix does |
 |---|---|---|
 | *The controller clock is wrong* | The softener's last power-up stamp is in the future, or two or more years in the past | Sets the valve controller's clock to Home Assistant's local time |
+
+The valve controller keeps its own clock, separate from the Wi-Fi module's
+NTP-synced one, and nothing syncs it — which is why it drifts and why setting
+it is a manual command.
 
 The clock repair is raised per softener and clears itself on the poll that
 shows the clock right, or that shows the softener has left the account. If the
@@ -468,7 +479,9 @@ The first suite needs no Home Assistant: it covers the derived maths, the
 capability detector and the cloud client, the last against a local HTTP server
 rather than a request mock. The second needs
 `pytest-homeassistant-custom-component`, which pins the Home Assistant release
-and its Python version, so it does not run on a machine without them.
+and its Python version, so it does not run on a machine without them. It does
+not run on Windows either, with or without them: Home Assistant's runner
+imports `fcntl`. `mypy` does run there, given Home Assistant installed.
 
 The GitHub `Tests` workflow runs both suites on every push under one coverage
 run and **fails under 95%**, in total and for every module on its own
