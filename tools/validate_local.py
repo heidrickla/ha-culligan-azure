@@ -444,8 +444,11 @@ def main() -> int:
         ),
         (
             "test-coverage",
-            "--cov-fail-under=95" in workflow_src,
-            "the Tests workflow reports coverage without gating on it",
+            "--cov-fail-under=95" in workflow_src
+            and "check_module_coverage.py" in workflow_src
+            and os.path.isfile(os.path.join(ROOT, "tools", "check_module_coverage.py")),
+            "the rule asks for the floor on every module: the Tests workflow "
+            "must gate the aggregate and run tools/check_module_coverage.py",
         ),
         (
             "strict-typing",

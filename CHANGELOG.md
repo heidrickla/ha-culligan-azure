@@ -75,7 +75,9 @@ ship in-repo; on anything older the icon was a placeholder.
 
 - The GitHub `Tests` workflow runs the Home Assistant suite, `mypy --strict`
   with Home Assistant installed, the offline validator and `ruff` on every
-  push, and **fails under 95% test coverage**.
+  push, and **fails under 95% test coverage** — in total and for every module on
+  its own, checked by `tools/check_module_coverage.py`, because an aggregate
+  gate lets one thinly covered platform hide behind the rest.
 - `api.py` is covered against a local HTTP server, including the reactive
   re-authentication on 401 and its one-retry limit.
 - `mypy` runs strict with nothing switched back off; the run is scoped to the

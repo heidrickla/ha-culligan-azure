@@ -55,7 +55,13 @@ jobs:
         run: >
           python -m pytest tests/ha -q
           --cov=custom_components/culligan_azure --cov-append
-          --cov-report=term-missing --cov-fail-under=95
+          --cov-report=term-missing --cov-report=json:coverage.json
+          --cov-fail-under=95
+
+      # The rule asks for the floor on every module. The step above gates the
+      # aggregate, where one thin platform hides behind the rest.
+      - name: Per-module coverage floor
+        run: python tools/check_module_coverage.py
 
       # Paths and settings come from pyproject, which scopes the run to the
       # integration with no per-module relaxation.
