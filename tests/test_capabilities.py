@@ -102,3 +102,20 @@ def test_evidence_reports_every_group_with_its_readings():
     assert sorted(ev) == sorted(c.value for c in Capability)
     assert ev["aqua_sensor"]["present"] is False
     assert ev["aqua_sensor"]["indicators"]["aquasensor_z_ratio_current_tank_1"] == 0
+
+
+def test_what_counts_as_a_meaningful_reading():
+    """The shapes this API actually returns: numbers as strings, date
+    sentinels, blanks, and the occasional list."""
+    meaningful = caps._is_meaningful
+    assert meaningful("") is False
+    assert meaningful("   ") is False
+    assert meaningful("0000-00-00 00:00:00") is False
+    assert meaningful("0.0") is False
+    assert meaningful("2.5") is True
+    # A word is real content: it cannot be a zero reading.
+    assert meaningful("installed") is True
+    assert meaningful([]) is False
+    assert meaningful([1]) is True
+    assert meaningful({}) is False
+    assert meaningful(object()) is True

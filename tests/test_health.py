@@ -109,3 +109,37 @@ def test_string_numbers_are_coerced():
     assert health.as_number({"x": " 3.5 "}, "x") == 3.5
     assert health.as_number({"x": True}, "x") is None
     assert health.as_number({"x": "0"}, "x") == 0.0
+    # A field carrying prose rather than a number is unknown, not zero.
+    assert health.as_number({"x": "unavailable"}, "x") is None
+    assert health.as_number({"x": ["1"]}, "x") is None
+
+
+def test_a_fault_log_with_no_usable_entries_reads_as_unknown():
+    """An entry with no date cannot be the last error and one with no numeric
+    code cannot be counted; neither invents a value from the rest."""
+    assert health.last_error({"errors": [{"num": 20}]}) is None
+    assert (
+        health.most_common_error({"errors": [{"date": "2026-01-01 00:00:00"}]}) is None
+    )
+
+
+def test_a_power_up_stamp_that_is_not_a_year_reads_as_unknown():
+    def wrong(stamp):
+        return health.clock_is_wrong({"last_power_up_time": stamp}, 2026)
+
+    assert wrong("abcd-01-01 00:00:00") is None
+    assert wrong("0000-00-00 00:00:00") is None
+    assert wrong("no") is None
+    assert health.clock_is_wrong({}, 2026) is None
+
+
+def test_a_controller_clock_set_to_the_future_is_wrong_at_once():
+    """The stamp records a past event, so a future year is wrong with no slack
+    while a past year gets a year of it."""
+
+    def wrong(stamp):
+        return health.clock_is_wrong({"last_power_up_time": stamp}, 2026)
+
+    assert wrong("2030-01-01 00:00:00") is True
+    assert wrong("2025-12-31 23:00:00") is False
+    assert wrong("2024-01-01 00:00:00") is True

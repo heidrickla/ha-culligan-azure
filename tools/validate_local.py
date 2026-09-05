@@ -295,12 +295,14 @@ def main() -> int:
 
     # ---------------------------------------------------------- quality scale
     scale_path = os.path.join(COMP, "quality_scale.yaml")
+    scale_rules: dict[str, Any] = {}
     check(os.path.isfile(scale_path), "quality_scale.yaml is missing")
     if os.path.isfile(scale_path):
         try:
             import yaml
 
             declared = yaml.safe_load(read(scale_path)).get("rules", {})
+            scale_rules = declared
             missing = ALL_RULES - set(declared)
             check(not missing, f"quality_scale.yaml does not mention {sorted(missing)}")
             unknown = set(declared) - ALL_RULES
@@ -390,6 +392,61 @@ def main() -> int:
             f"{platform}.py does not set PARALLEL_UPDATES",
         )
     check("CONFIG_SCHEMA" in init_src, "__init__.py declares no CONFIG_SCHEMA")
+
+    # ------------------------------------------------- quality scale mechanisms
+    # A rule filed `done` whose mechanism is not in the file set is the failure
+    # mode this whole file exists for: the yaml reads finished and nothing
+    # contradicts it. Each entry is (rule, the mechanism is present, why not).
+    repairs_src = (
+        read(COMP, "repairs.py")
+        if os.path.isfile(os.path.join(COMP, "repairs.py"))
+        else ""
+    )
+    sensor_src = read(COMP, "sensor.py")
+    workflow = os.path.join(ROOT, ".github", "workflows", "tests.yml")
+    workflow_src = read(workflow) if os.path.isfile(workflow) else ""
+    pyproject_src = read(pyproject_path) if os.path.isfile(pyproject_path) else ""
+
+    mechanisms: list[tuple[str, bool, str]] = [
+        (
+            "repair-issues",
+            bool(repairs_src)
+            and "async_create_fix_flow" in repairs_src
+            and bool(issue_consts)
+            and "repairs" in manifest.get("dependencies", []),
+            "needs repairs.py with async_create_fix_flow, an ISSUE_ constant "
+            "and 'repairs' in manifest dependencies",
+        ),
+        (
+            "stale-devices",
+            "async_remove_config_entry_device" in init_src
+            and "async_track_stale_devices" in init_src,
+            "needs async_remove_config_entry_device and removal tracked on "
+            "every poll, not only at setup",
+        ),
+        (
+            "entity-device-class",
+            "SensorDeviceClass.DURATION" in sensor_src
+            and "SensorDeviceClass.VOLUME_STORAGE" in sensor_src,
+            "the time and volume sensors carry no device class",
+        ),
+        (
+            "test-coverage",
+            "--cov-fail-under=95" in workflow_src,
+            "the Tests workflow reports coverage without gating on it",
+        ),
+        (
+            "strict-typing",
+            "strict = true" in pyproject_src
+            and "ignore_missing_imports" not in pyproject_src,
+            "pyproject must set mypy strict with no ignore_missing_imports",
+        ),
+    ]
+    for rule, present, why in mechanisms:
+        value = scale_rules.get(rule)
+        status = value.get("status") if isinstance(value, dict) else value
+        if status == "done":
+            check(present, f"{rule} is filed done but {why}")
 
     # ---------------------------------------------------------- shipped files
     check(

@@ -13,6 +13,10 @@ DAY = 86400.0
 REAL = {"total_regens_since_install": 749, "days_since_install": 747}
 CORRECT = {"total_regens_since_install": 152, "days_since_install": 747}
 EXPECTED_INTERVAL = 4.902
+REAL_COUNTERS = {
+    "total_water_usage_since_install_tank_1": 182179,
+    "total_regens_since_install": 749,
+}
 
 
 def build(
@@ -144,3 +148,93 @@ def test_cycle_age_degenerate_inputs():
     assert resin.cycle_age_years(REAL, None) is None
     assert resin.cycle_age_years(REAL, 0) is None
     assert resin.cycle_age_acceleration({}, EXPECTED_INTERVAL) is None
+
+
+def test_missing_or_nonsensical_counters_produce_no_figure():
+    """Every counter here can be absent on older firmware, and a negative one
+    means a reset. Neither may reach an entity as a number."""
+    assert resin.capacity_per_cycle_lifetime({}) is None
+    assert (
+        resin.capacity_per_cycle_lifetime(
+            {
+                "total_water_usage_since_install_tank_1": "x",
+                "total_regens_since_install": 1,
+            }
+        )
+        is None
+    )
+    assert resin.cycle_age_years({}, EXPECTED_INTERVAL) is None
+    assert (
+        resin.cycle_age_years({"total_regens_since_install": -1}, EXPECTED_INTERVAL)
+        is None
+    )
+    assert resin.excess_cycles_lifetime(REAL, None) is None
+    assert resin.excess_cycles_lifetime({}, EXPECTED_INTERVAL) is None
+    assert (
+        resin.excess_cycles_lifetime(
+            {"total_regens_since_install": 5, "days_since_install": 0},
+            EXPECTED_INTERVAL,
+        )
+        is None
+    )
+    assert (
+        resin.cycle_age_acceleration(
+            {"total_regens_since_install": 5, "days_since_install": 0},
+            EXPECTED_INTERVAL,
+        )
+        is None
+    )
+
+
+def test_a_sample_is_only_built_from_usable_counters():
+    good = resin.make_sample(1000.0, REAL_COUNTERS)
+    assert good == {"ts": 1000.0, "gallons": 182179.0, "regens": 749.0}
+    assert resin.make_sample(1000.0, {}) is None
+    assert (
+        resin.make_sample(
+            1000.0,
+            {
+                "total_water_usage_since_install_tank_1": -1,
+                "total_regens_since_install": 5,
+            },
+        )
+        is None
+    )
+
+
+def test_a_fit_needs_two_points_that_differ():
+    assert resin._linear_fit([]) is None
+    assert resin._linear_fit([(1.0, 2.0)]) is None
+    # Every sample at the same instant: no slope exists.
+    assert resin._linear_fit([(1.0, 2.0), (1.0, 3.0)]) is None
+    slope, intercept = resin._linear_fit([(0.0, 10.0), (1.0, 8.0)])
+    assert abs(slope + 2.0) < 1e-9
+    assert abs(intercept - 10.0) < 1e-9
+
+
+def test_a_short_history_says_it_is_still_collecting():
+    """Four windows inside three weeks is a trend line drawn through noise."""
+    r = resin.analyse(build(14, 243, 40, regens_per_day=2.0, step_days=2))
+    assert r["status"] == "collecting"
+    assert r["years_remaining"] is None
+    assert r["span_days"] is not None
+
+
+def test_a_baseline_of_zero_is_reported_rather_than_divided_by(monkeypatch):
+    """windowed_capacities cannot produce a zero capacity today; the guard is
+    what stops a future change there from dividing by zero silently."""
+    flat = [(day * 86400.0, 0.0) for day in (0, 30, 60, 90)]
+    monkeypatch.setattr(resin, "windowed_capacities", lambda _s: flat)
+    assert resin.analyse([{"ts": 0.0}])["status"] == "invalid_baseline"
+
+
+def test_a_series_with_no_usable_trend_says_so(monkeypatch):
+    monkeypatch.setattr(resin, "_linear_fit", lambda _p: None)
+    r = resin.analyse(build(200, 243, 40))
+    assert r["status"] == "no_trend"
+    assert r["years_remaining"] is None
+
+
+def test_a_short_history_is_returned_unpruned():
+    samples = build(30, 243, 10, step_days=1)
+    assert resin.prune(samples, max_samples=1000) == samples

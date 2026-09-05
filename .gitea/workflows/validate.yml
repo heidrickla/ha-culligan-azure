@@ -74,13 +74,20 @@ jobs:
           python -m pip install --quiet "mypy==1.18.2" \
             "pytest-homeassistant-custom-component==0.13.357"
 
-      - name: Home Assistant layer tests
+      - name: Pure tests
+        run: >
+          python -m pytest tests/test_health.py tests/test_resin.py
+          tests/test_capabilities.py tests/test_api.py -q -p no:homeassistant
+          --cov=custom_components/culligan_azure --cov-report=
+
+      - name: Home Assistant layer tests and the coverage gate
         run: >
           python -m pytest tests/ha -q
-          --cov=custom_components/culligan_azure --cov-report=term-missing
+          --cov=custom_components/culligan_azure --cov-append
+          --cov-report=term-missing --cov-fail-under=95
 
       - name: mypy strict
-        run: python -m mypy custom_components/culligan_azure
+        run: python -m mypy
 
   hacs:
     name: hassfest + HACS
