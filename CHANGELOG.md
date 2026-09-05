@@ -55,6 +55,27 @@ ship in-repo; on anything older the icon was a placeholder.
   flight at once.
 - Entities take their icon from their device class where one fits; icons are
   kept only where several entities on a device page would otherwise look alike.
+- *Wi-Fi signal*, *Last power up*, *Regenerations lifetime*, *Capacity per
+  regeneration (lifetime avg)* and both raw Aqua-Sensor readings (*Aqua-Sensor
+  ratio* and *Aqua-Sensor minimum*) are now registered **disabled by default**,
+  so a fresh install no longer gets those six entities. Enable one from
+  Settings → Devices & services → the softener → the entity → the cog →
+  *Enabled*. The default applies when an entity is first registered, so an
+  existing install keeps the ones it already has.
+
+### Removed
+
+- The paragraphs of English explanation that shipped as state attributes are
+  gone: `interpretation` on *Regeneration efficiency* and *Over-regenerating*,
+  `note` on *Excess regenerations per year* and *Resin capacity fade*, `method`
+  on *Resin life remaining*, and `meaning` on *Over-regenerating* and
+  *Controller clock wrong*. Attributes are for values; those explanations are
+  in the README now, where they can be read once and translated. A template or
+  automation reading one of them — `state_attr('sensor.softener_resin_life_remaining',
+  'method')`, say — now gets `None`. The numeric attributes on the same
+  entities (`actual_days_between_regens`, `expected_days_between_regens`,
+  `baseline_capacity`, `current_capacity`, `status`, `samples`,
+  `last_power_up_time` and the rest) are unchanged.
 
 ### Fixed
 
@@ -81,9 +102,13 @@ ship in-repo; on anything older the icon was a placeholder.
 - `api.py` is covered against a local HTTP server, including the reactive
   re-authentication on 401 and its one-retry limit.
 - `mypy` runs strict with nothing switched back off; the run is scoped to the
-  integration by `pyproject.toml` rather than by a per-module relaxation. The
-  last one to go was `follow_imports = "silent"`, which changes nothing with
-  Home Assistant installed: the run passes identically without it.
+  integration by `pyproject.toml` rather than by a per-module relaxation. Two
+  went for the same reason — `follow_imports = "silent"`, then
+  `disable_error_code = ["import-not-found", "import-untyped"]`. With Home
+  Assistant installed the run passes identically without either, and
+  `import-untyped` is the code `ignore_missing_imports` suppresses, so keeping
+  it was that relaxation under another name. `tools/validate_local.py` now
+  refuses `strict-typing` filed done if either shape comes back.
 
 Earlier in this version, before the work above: the integration was rebuilt to
 the Integration Quality Scale — coordinator state moved onto `entry.runtime_data`,
