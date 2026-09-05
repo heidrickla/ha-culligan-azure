@@ -42,6 +42,18 @@ VALID_IOT_CLASS = {
     "calculated",
 }
 
+# mypy settings that take something back off strict. `follow_imports` is here
+# because it was once justified as harmless: with Home Assistant installed it
+# changes nothing, which makes it a relaxation carried for no reason.
+MYPY_RELAXATIONS = (
+    "ignore_missing_imports",
+    "follow_imports",
+    "allow_untyped_defs",
+    "allow_untyped_calls",
+    "allow_any_generics",
+    "implicit_reexport",
+)
+
 # Home Assistant exceptions whose message reaches the user, so every raise
 # must carry a translation key rather than an English f-string.
 TRANSLATED_EXCEPTIONS = {
@@ -438,8 +450,9 @@ def main() -> int:
         (
             "strict-typing",
             "strict = true" in pyproject_src
-            and "ignore_missing_imports" not in pyproject_src,
-            "pyproject must set mypy strict with no ignore_missing_imports",
+            and not any(r in pyproject_src for r in MYPY_RELAXATIONS),
+            "pyproject must set mypy strict with nothing switched back off: "
+            f"none of {', '.join(sorted(MYPY_RELAXATIONS))}",
         ),
     ]
     for rule, present, why in mechanisms:

@@ -79,7 +79,9 @@ ship in-repo; on anything older the icon was a placeholder.
 - `api.py` is covered against a local HTTP server, including the reactive
   re-authentication on 401 and its one-retry limit.
 - `mypy` runs strict with nothing switched back off; the run is scoped to the
-  integration by `pyproject.toml` rather than by a per-module relaxation.
+  integration by `pyproject.toml` rather than by a per-module relaxation. The
+  last one to go was `follow_imports = "silent"`, which changes nothing with
+  Home Assistant installed: the run passes identically without it.
 
 Earlier in this version, before the work above: the integration was rebuilt to
 the Integration Quality Scale — coordinator state moved onto `entry.runtime_data`,
