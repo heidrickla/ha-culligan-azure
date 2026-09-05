@@ -7,6 +7,10 @@ VERSION = "0.3.0"
 SERVICE_BYPASS_TIMED = "bypass_timed"
 SERVICE_SET_CLOCK = "set_clock"
 
+# Repair issue translation key. The issue id appends the serial so two
+# softeners on one account each raise their own repair.
+ISSUE_CLOCK_WRONG = "clock_wrong"
+
 
 # The app polls telemetry every ~10-20s while a device screen is open. That is
 # far more aggressive than a background integration needs, and this API is

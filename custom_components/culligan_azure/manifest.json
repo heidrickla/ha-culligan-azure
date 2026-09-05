@@ -5,6 +5,9 @@
     "@heidrickla"
   ],
   "config_flow": true,
+  "dependencies": [
+    "repairs"
+  ],
   "documentation": "https://github.com/heidrickla/ha-culligan-azure",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
