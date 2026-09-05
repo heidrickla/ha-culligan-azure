@@ -5,9 +5,11 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import UnitOfVolume
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
 from custom_components.culligan_azure.api import CulliganAuthError, CulliganError
 from custom_components.culligan_azure.const import DOMAIN
@@ -288,19 +290,26 @@ async def test_aqua_sensor_entities_are_absent_on_a_unit_without_one(
     assert hass.states.get("sensor.softener_water_used_today") is not None
 
 
+AQUA_DEVICE = {
+    **DEVICE,
+    "properties": {
+        **DEVICE["properties"],
+        "aquasensor_z_ratio_current_tank_1": 0.82,
+        "total_capacity_volume_tank_1": 1109,
+        "capacity_remaining_tank_1": 640,
+    },
+}
+
+
 async def test_aqua_sensor_entities_appear_when_the_sensor_reports(hass, config_entry):
     """A unit that does have one gets the entities, without a reload."""
-    device = {
-        **DEVICE,
-        "properties": {
-            **DEVICE["properties"],
-            "aquasensor_z_ratio_current_tank_1": 0.82,
-            "total_capacity_volume_tank_1": 1109,
-            "capacity_remaining_tank_1": 640,
-        },
-    }
+    # The controller reports gallons and this softener is sold to US
+    # households, so the readings are asserted in the unit system that leaves
+    # them unconverted. The conversion the device class performs for a metric
+    # household is the test below.
+    hass.config.units = US_CUSTOMARY_SYSTEM
     config_entry.add_to_hass(hass)
-    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[device]):
+    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[AQUA_DEVICE]):
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
@@ -311,6 +320,19 @@ async def test_aqua_sensor_entities_appear_when_the_sensor_reports(hass, config_
     ratio = registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_aquasensor_ratio")
     assert ratio is not None
     assert registry.async_get(ratio).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+
+
+async def test_capacity_readings_convert_for_a_metric_household(hass, config_entry):
+    """VOLUME_STORAGE is what makes the gallons follow the unit system."""
+    hass.config.units = METRIC_SYSTEM
+    config_entry.add_to_hass(hass)
+    with patch(LOGIN, return_value=None), patch(DEVICES, return_value=[AQUA_DEVICE]):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.softener_working_capacity")
+    assert state.attributes["unit_of_measurement"] == UnitOfVolume.LITERS
+    assert float(state.state) == pytest.approx(1109 * 3.785411784, rel=1e-6)
 
 
 async def test_a_user_can_force_a_capability_on(hass, config_entry):
