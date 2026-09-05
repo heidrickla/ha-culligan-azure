@@ -65,6 +65,25 @@ def async_remove_stale_devices(
 
 
 @callback
+def async_track_stale_devices(
+    hass: HomeAssistant, entry: CulliganConfigEntry, coordinator: CulliganCoordinator
+) -> None:
+    """Remove stale devices now and after every later poll.
+
+    A softener sold, moved to another account or removed in the app leaves the
+    account between polls, not at setup, so checking once at setup left the
+    device page showing hardware that is gone until the next restart.
+    """
+
+    @callback
+    def _check() -> None:
+        async_remove_stale_devices(hass, entry, coordinator)
+
+    _check()
+    entry.async_on_unload(coordinator.async_add_listener(_check))
+
+
+@callback
 def async_add_capability_entities(
     entry: CulliganConfigEntry,
     coordinator: CulliganCoordinator,
