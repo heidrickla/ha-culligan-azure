@@ -12,20 +12,21 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 # strict-typing rule. The Tests workflow runs this with Home Assistant
 # installed, which is the check that counts; on a machine without it every
 # class Home Assistant exports is Any and the run says little.
+#
+# `files` scopes the run to the integration, the way core scopes strict typing
+# per integration, so no per-module relaxation is needed to keep the test
+# harness out of it. `strict = true` is left to imply its own flags rather than
+# repeating them, and nothing is switched back off. follow_imports = "silent"
+# type-checks against Home Assistant's real types while leaving errors inside
+# Home Assistant itself - which are not ours to fix - unreported. The two
+# disabled codes are the ones core disables for dependencies that ship no
+# stubs, and neither hides an error in this integration's own code.
 [tool.mypy]
 python_version = "3.14"
+files = ["custom_components/culligan_azure"]
 strict = true
-warn_return_any = true
-disallow_untyped_defs = true
-disallow_any_generics = true
-no_implicit_reexport = true
-ignore_missing_imports = true
 follow_imports = "silent"
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-strict = false
-disallow_untyped_defs = false
+disable_error_code = ["import-not-found", "import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
