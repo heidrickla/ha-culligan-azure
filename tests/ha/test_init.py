@@ -1,5 +1,6 @@
 """Setup, teardown, services, and what a failing poll does to the entry."""
 
+import datetime
 import logging
 from unittest.mock import patch
 
@@ -9,10 +10,19 @@ from homeassistant.const import UnitOfVolume
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
 from custom_components.culligan_azure.api import CulliganAuthError, CulliganError
+from custom_components.culligan_azure.binary_sensor import (
+    CulliganBinaryDescription,
+    CulliganBinarySensor,
+)
 from custom_components.culligan_azure.const import DOMAIN
+from custom_components.culligan_azure.sensor import (
+    CulliganSensor,
+    CulliganSensorDescription,
+)
 
 from .conftest import DEVICE, SERIAL
 
@@ -141,6 +151,18 @@ async def test_resin_replacement_due_fires_on_a_confident_trend_under_a_year(
 async def test_resin_replacement_due_is_unknown_while_collecting(hass, config_entry):
     await _setup_with_resin(hass, config_entry, {"status": "collecting"})
     assert hass.states.get(RESIN_DUE).state == "unknown"
+
+
+async def test_resin_replacement_due_fires_at_the_capacity_floor(hass, config_entry):
+    """At the floor the trend no longer matters: the resin is spent."""
+    await _setup_with_resin(
+        hass,
+        config_entry,
+        {"status": "at_end_of_life", "capacity_fade_percent": 61.0},
+    )
+    state = hass.states.get(RESIN_DUE)
+    assert state.state == "on"
+    assert state.attributes["status"] == "at_end_of_life"
 
 
 async def test_a_failing_telemetry_fallback_is_logged_once(hass, config_entry, caplog):
@@ -371,3 +393,82 @@ async def test_a_user_can_force_a_detected_capability_off(hass, config_entry):
         registry.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_aquasensor_ratio")
         is None
     )
+
+
+@pytest.mark.parametrize(
+    ("flags", "days", "expected"),
+    [("0", "0", "off"), ("4", "0", "on"), ("0", "3", "on")],
+)
+async def test_fault_present_coerces_the_error_datapoints(
+    hass, config_entry, flags, days, expected
+):
+    """Either field can carry the fault, and both arrive as strings, where raw
+    truthiness would read "0" as a fault."""
+    device = {
+        **DEVICE,
+        "properties": {
+            **DEVICE["properties"],
+            "system_error_bit_flags": flags,
+            "days_in_error": days,
+        },
+    }
+    await _setup(hass, config_entry, devices=[device])
+
+    assert hass.states.get("binary_sensor.softener_fault_present").state == expected
+
+
+async def test_a_controller_stamp_becomes_a_timestamp_state(hass, config_entry):
+    """The controller emits local wall-clock time with no zone of its own."""
+    device = {
+        **DEVICE,
+        "properties": {
+            **DEVICE["properties"],
+            "last_regen_date_time_tank_1": "2026-08-30 04:00:00",
+        },
+    }
+    await _setup(hass, config_entry, devices=[device])
+
+    state = hass.states.get("sensor.softener_last_regeneration")
+    assert dt_util.parse_datetime(state.state) == datetime.datetime(
+        2026, 8, 30, 4, 0, tzinfo=dt_util.get_default_time_zone()
+    )
+
+
+@pytest.mark.parametrize("stamp", ["0000-00-00 00:00:00", "31/08/2026 04:00", 0])
+async def test_a_nonsense_stamp_reads_unknown(hass, config_entry, stamp):
+    """The controller clock is often unset or years out. A sentinel, a stamp in
+    another format and a bare number all read unknown rather than become a
+    wrong date."""
+    device = {
+        **DEVICE,
+        "properties": {**DEVICE["properties"], "last_regen_date_time_tank_1": stamp},
+    }
+    await _setup(hass, config_entry, devices=[device])
+
+    assert hass.states.get("sensor.softener_last_regeneration").state == "unknown"
+
+
+async def test_an_extractor_that_raises_reads_unknown(hass, config_entry):
+    """Telemetry shape is the vendor's to change. An extractor meeting a shape
+    it did not expect drops that one reading, not the whole entity."""
+    await _setup(hass, config_entry)
+    coordinator = config_entry.runtime_data
+
+    def _boom(*_args):
+        raise TypeError("unexpected telemetry shape")
+
+    sensor = CulliganSensor(
+        coordinator,
+        SERIAL,
+        CulliganSensorDescription(key="boom", value_fn=_boom, attrs_fn=_boom),
+    )
+    assert sensor.native_value is None
+    assert sensor.extra_state_attributes is None
+
+    binary = CulliganBinarySensor(
+        coordinator,
+        SERIAL,
+        CulliganBinaryDescription(key="boom", value_fn=_boom, attrs_fn=_boom),
+    )
+    assert binary.is_on is None
+    assert binary.extra_state_attributes is None

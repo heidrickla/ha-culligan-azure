@@ -87,11 +87,15 @@ rules:
   test-coverage:
     status: done
     comment: |
-      The Tests workflow measures the pure suite and the Home Assistant
-      suite together and fails under 95% (--cov-fail-under=95). api.py is
-      exercised against a local HTTP server, including the 401 re-auth and
-      its one-retry limit; every button, the number, both switches,
-      diagnostics and the repair flow have tests of their own.
+      The rule asks for the floor on every module, so the Tests workflow
+      gates twice: --cov-fail-under=95 over the pure and Home Assistant
+      suites together, then tools/check_module_coverage.py over the
+      per-file figures, which an aggregate lets a thin platform hide
+      behind. api.py is exercised against a local HTTP server, including
+      the 401 re-auth and its one-retry limit; every button, the number,
+      both switches, diagnostics and the repair flow have tests of their
+      own, and the entity guards, the controller stamp parser and the
+      fault coercion are covered rather than excluded.
 
   # Gold
   devices:

@@ -471,8 +471,10 @@ rather than a request mock. The second needs
 and its Python version, so it does not run on a machine without them.
 
 The GitHub `Tests` workflow runs both suites on every push under one coverage
-run and **fails under 95%**, then `mypy --strict`, the offline validator and
-`ruff`. The quality-scale status of every rule is in
+run and **fails under 95%**, in total and for every module on its own
+(`tools/check_module_coverage.py`, so one thinly covered platform cannot hide
+behind the rest), then `mypy --strict`, the offline validator and `ruff`. The
+quality-scale status of every rule is in
 [`quality_scale.yaml`](custom_components/culligan_azure/quality_scale.yaml);
 the validator refuses a rule filed `done` whose mechanism is not in the tree.
 
