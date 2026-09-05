@@ -89,6 +89,22 @@
       "message": "The Culligan cloud returned no devices for this account."
     }
   },
+  "issues": {
+    "clock_wrong": {
+      "title": "{device}: the controller clock is wrong",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Set the controller clock",
+            "description": "The valve controller in {device} keeps its own clock, separate from the Wi-Fi module's NTP-synced one, and nothing corrects it. It is currently years out, so the regeneration schedule and every date the softener reports are unreliable.\n\nSubmit to set it to Home Assistant's local time. The corrected clock is not visible in the telemetry until the softener next powers up."
+          }
+        },
+        "error": {
+          "command_failed": "Culligan did not accept the command. The softener may be offline; try again later."
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "current_flow_rate": {

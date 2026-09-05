@@ -22,6 +22,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -119,11 +120,23 @@ async def async_remove_config_entry_device(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: CulliganConfigEntry) -> None:
-    """Delete the entry's resin-history store file with the entry.
+    """Delete what the entry leaves behind: its store file and its repairs.
 
     The store is keyed per entry_id, so without this every removed account
-    leaves an orphaned file in .storage forever.
+    leaves an orphaned file in .storage forever. Repair issues outlive the
+    entry the same way, and one for a softener that is no longer configured
+    can never be fixed.
     """
+    registry = ir.async_get(hass)
+    for issue_domain, issue_id in list(registry.issues):
+        issue = registry.async_get_issue(issue_domain, issue_id)
+        if (
+            issue_domain == DOMAIN
+            and issue is not None
+            and (issue.data or {}).get("entry_id") == entry.entry_id
+        ):
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}"
     )

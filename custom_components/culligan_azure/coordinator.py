@@ -8,15 +8,16 @@ from collections.abc import Awaitable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from . import capabilities, health, resin
 from .api import CulliganApiClient, CulliganAuthError, CulliganError
-from .const import CONF_FORCE_OFF, CONF_FORCE_ON, DOMAIN
+from .const import CONF_FORCE_OFF, CONF_FORCE_ON, DOMAIN, ISSUE_CLOCK_WRONG
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +62,9 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Serials whose /device/data fallback is currently failing, so the
         # failure is logged once on loss and once on recovery, not every poll.
         self._fallback_failing: set[str] = set()
+        # Repair issue ids currently raised, so each poll can clear the ones
+        # that no longer apply without walking the whole issue registry.
+        self._clock_issues: set[str] = set()
 
     async def async_load_history(self) -> None:
         """Load persisted resin samples. Must run before the first refresh."""
@@ -178,7 +182,39 @@ class CulliganCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if not result:
             raise UpdateFailed(translation_domain=DOMAIN, translation_key="no_devices")
+        self._sync_clock_issues(result)
         return result
+
+    @callback
+    def _sync_clock_issues(self, result: dict[str, Any]) -> None:
+        """Raise or clear the controller-clock repair, one per softener.
+
+        The clock is user-fixable in a single click and nothing else corrects
+        it, so it earns a repair with a fix flow rather than a problem sensor
+        alone. Issues for softeners that no longer report a wrong clock, or
+        that left the account, are cleared in the same pass.
+        """
+        entry_id = self.config_entry.entry_id if self.config_entry else ""
+        raised: set[str] = set()
+        for serial, payload in result.items():
+            if payload["health"].get("clock_is_wrong") is not True:
+                continue
+            issue_id = f"{ISSUE_CLOCK_WRONG}_{serial}"
+            raised.add(issue_id)
+            device: dict[str, Any] = payload.get("device") or {}
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_CLOCK_WRONG,
+                translation_placeholders={"device": device.get("name") or serial},
+                data={"entry_id": entry_id, "serial": serial},
+            )
+        for issue_id in self._clock_issues - raised:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+        self._clock_issues = raised
 
     async def async_flush_history(self) -> None:
         """Write the resin history now, superseding any pending delayed save.
