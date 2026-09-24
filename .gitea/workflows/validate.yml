@@ -44,10 +44,14 @@ jobs:
           done
           echo "all JSON valid"
 
+      # A venv of its own: pytest in the shared toolcache Python autoloads
+      # plugins other jobs installed there, and a stale aiodns beside a newer
+      # pycares failed every run from 2026-09-04.
       - name: Pure tests
         run: |
-          python -m pip install --quiet "pytest==9.0.3"
-          python -m pytest tests/test_health.py tests/test_resin.py tests/test_capabilities.py -q
+          python -m venv .venv-pure
+          .venv-pure/bin/python -m pip install --quiet "pytest==9.0.3"
+          .venv-pure/bin/python -m pytest tests/test_health.py tests/test_resin.py tests/test_capabilities.py -q
 
       # Manifest, translations, icons, actions, exceptions and the quality
       # scale against the pinned rule list.
