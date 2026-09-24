@@ -89,13 +89,12 @@ jobs:
       - name: mypy strict
         run: python -m mypy
 
-  hacs:
-    name: hassfest + HACS
+  # hacs/action reads the repository through the GitHub API, so it cannot
+  # check this tree here; .github/workflows/validate.yml runs it on GitHub.
+  hassfest:
+    name: hassfest
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb # master
-      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
-        with:
-          category: integration
