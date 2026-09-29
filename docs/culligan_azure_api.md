@@ -1,14 +1,14 @@
 # Culligan Connect cloud API
 
-Reverse-engineered from the Android app (`com.culligan.connect` 3.7.17, versionCode 264) by TLS
-interception on an emulator with the mitmproxy CA in the system trust store. 398 flows captured
-2026-08-10.
+Recovered from the Android app (`com.culligan.connect` 3.7.17, versionCode 264) by TLS
+interception on an emulator with the mitmproxy CA in the system trust store; 398 flows in the
+first capture.
 
 Base URL: `https://uniapi.culliganiot.com`
 App config: `https://static.culliganiot.com/appconfig/culligan-connect/appconfig.json`
 
-The app does **not** pin certificates (OkHttp is bundled but `CertificatePinner` is never configured),
-and declares no `networkSecurityConfig`. A system-store CA is sufficient to intercept.
+The app does not pin certificates (OkHttp is bundled but `CertificatePinner` is never
+configured) and declares no `networkSecurityConfig`, so a system-store CA is enough to intercept.
 
 ## Architecture
 
@@ -29,39 +29,36 @@ integration point.
 
 `appId` is a constant sent by the app.
 
-### Token handling — do NOT trust `expiresIn`
+### Token lifetime
 
-Observed behaviour, measured across 900+ flows:
+Measured across 900+ flows:
 
     14:17:27  POST /auth/login    -> 200, expiresIn 3600
     14:44:28  POST /device/command -> 401 {"success":false,"error":{"message":"INVALID_TOKEN"}}
     14:44:29  POST /auth/login    -> 200, resumes normally
 
-- The token was rejected after **~27 minutes**, not the 3600s advertised. Treat `expiresIn` as
-  advisory at best.
-- **The app never uses `refreshToken`.** Zero calls to any refresh endpoint in the entire capture;
-  on 401 it simply re-POSTs `/auth/login` with the stored credentials.
+- The API rejects a token after about 27 minutes, against the advertised 3600 s.
+- The app never calls a refresh endpoint and never uses `refreshToken`. On 401 it re-POSTs
+  `/auth/login` with the stored credentials.
 
-So an integration should hold the username/password, ignore `expiresIn`, and **re-authenticate
-reactively on `401 INVALID_TOKEN`** rather than proactively on a timer. A refresh-token flow may
-exist server-side but is unused by the client and therefore unverified.
+The integration does the same: it holds the credentials, ignores `expiresIn`, and
+re-authenticates on `401 INVALID_TOKEN`.
 
 ## Read endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/v1/device/registry` | Device list **including full telemetry** — the one call an integration needs. No query params. |
-| GET | `/api/v1/device/data?serialNumber=<dsn>` | Telemetry datapoints only. **`serialNumber` is required** — omit it and the call fails. |
-| GET | `/api/v1/device/state?serialNumber=<dsn>` | Connection/health: `connected`, heartbeat and event timestamps, `errors[]`, `alerts[]`. **`serialNumber` required.** |
-| GET | `/api/v1/metadata/device` | Device schema/metadata |
-| GET | `/api/v1/metadata/user` | User metadata (app polls this heavily) |
+| GET | `/api/v1/device/registry` | Device list including full telemetry; the one call an integration needs. No query params. |
+| GET | `/api/v1/device/data?serialNumber=<dsn>` | Telemetry datapoints only. `serialNumber` is required. |
+| GET | `/api/v1/device/state?serialNumber=<dsn>` | Connection and health: `connected`, heartbeat and event timestamps, `errors[]`, `alerts[]`. `serialNumber` is required. |
+| GET | `/api/v1/metadata/device` | Device schema and metadata |
+| GET | `/api/v1/metadata/user` | User metadata; the app polls it often |
 | GET | `/api/v1/user/profile` | Account profile |
 | GET | `/api/v1/notifications`, `/notifications/channels` | Notification config |
 
 `/device/registry` returns each device with `serialNumber`, `name`, `model`, `generation`,
-`swVersion`, `status.connection.online`, and a full `properties` object identical to
-`/device/data`'s `datapoints`. **Polling registry alone is enough for a Home Assistant
-integration** — one request yields device identity plus every sensor.
+`swVersion`, `status.connection.online`, and a `properties` object identical to `/device/data`'s
+`datapoints`. One request yields device identity and every sensor.
 
 ### Telemetry datapoints
 
@@ -76,10 +73,9 @@ integration** — one request yields device identity plus every sensor.
 
 ### Accessory datapoints, and detecting what is fitted
 
-The controller reports the same ~182 datapoints whatever hardware is attached.
-Absent accessories read **0**, which is indistinguishable from a real zero
-until you know the group. Read live from the house GBX1 (`GBX1-...401`,
-`GBX V3.08`) on 2026-08-31 — every group below reads zero on that unit:
+The controller reports the same ~182 datapoints whatever hardware is attached. Absent
+accessories read 0, which is indistinguishable from a real zero until you know the group. On a
+GBX1 (`GBX V3.08`) with none of these accessories, every group below reads zero:
 
     aquasensor_z_ratio_current_tank_1 / _tank_2    Aqua-Sensor conductivity ratio
     aquasensor_z_min_tank_1 / _tank_2              its running minimum
@@ -97,24 +93,19 @@ until you know the group. Read live from the house GBX1 (`GBX1-...401`,
     external_filter_alarm_capacity,
     filter_media_life, media_life_remaining        external filter
 
-⚠ **This is why `capacity_remaining_tank_1` reads negative.** With no
-Aqua-Sensor the derived `total_capacity_volume_tank_1` is 0, and the controller
-reports `capacity_remaining_tank_1` as **-515** on the live unit. Anything built
-on that field must be gated on the sensor being present, or it publishes a
-confident wrong number.
+With no Aqua-Sensor the derived `total_capacity_volume_tank_1` is 0 and
+`capacity_remaining_tank_1` reads negative (-515 on that unit). Anything built on that field is
+gated on the sensor being present.
 
-Related but NOT an accessory flag: `hardness_type` (0 on this unit) and
-`hardness_value` (10) are the programmed influent-hardness path the controller
-uses *instead of* an Aqua-Sensor. `accessories_enable_bit_flags` is 0 here; its
-bit layout is **unknown** and was deliberately not guessed.
+Not an accessory flag: `hardness_type` (0 on that unit) and `hardness_value` (10) are the
+programmed influent-hardness path the controller uses instead of an Aqua-Sensor.
+`accessories_enable_bit_flags` reads 0; its bit layout is not decoded.
 
-`capabilities.py` implements the detection: a group is present when **any** of
-its datapoints is present and non-zero. That direction cannot hide hardware
-that reports real values. The reverse is unproven — no unit with these
-accessories was available to read — so the options flow can force any group on
-or off.
+`capabilities.py` implements the detection: a group is present when any of its datapoints is
+present and non-zero, so hardware that reports real values is never hidden. The options flow can
+force any group on or off.
 
-## Control — the write path
+## Control: the write path
 
     POST /api/v1/device/command
     {
@@ -127,51 +118,49 @@ or off.
 
     200 -> {"success": true, "data": {"requestId": str}}
 
-The response only acknowledges the request; it does not carry the result. Confirm by polling
+The response acknowledges the request and does not carry the result. Confirm by polling
 `/device/registry` or `/device/data` afterwards.
 
-`requestId` is client-generated. Format observed: `CC-` + ISO-8601 timestamp + `-` + 8 hex chars.
-Whether the server validates the format is untested — mirroring it is the safe choice.
+`requestId` is client-generated: `CC-` + ISO-8601 timestamp + `-` + 8 hex chars. The integration
+sends the same format.
 
 ### Command vocabulary
 
-Extracted from the APK. Note the verbs are **multi-segment** (`bypass.timed.on`, not `bypass.set`) —
-an earlier extraction that assumed a single dot plus a fixed suffix list missed the entire bypass
-family. Match on `name(.segment){1,3}` when re-deriving this.
+Extracted from the APK. The verbs are multi-segment (`bypass.timed.on`, not `bypass.set`); match
+on `name(.segment){1,3}` when re-deriving them. Every param shape is read from
+`AzureDeviceCommandFactory` in the decompiled app. Effects are as observed on a GBX1;
+`salt.slm.set`'s is its name in the app.
 
-| Command | Params | Status |
+| Command | Params | Effect |
 |---|---|---|
-| `telemetry.get` | `{}` | ✅ verified — forces a device poll |
-| `salt.set` | `{"level": 25\|50\|75\|100}` | ✅ verified |
-| `awayMode.set` | `{"active": 0\|1}` | ✅ verified |
-| `bypass.timed.on` | `{"duration": 30\|60\|90\|120\|180}` | ✅ verified — minutes |
-| `bypass.permanent.on` | `{}` | ✅ verified |
-| `bypass.off` | `{}` | ✅ verified — cancels either bypass mode |
-| `regen.set` | `{"type": 1\|2}` | ✅ verified — **regeneration** |
-| `timeDate.set` | `{"dateTimeValue": "M-d-yyyy_HH:mm:ss"}` | ✅ verified — **sets the device clock** |
-| `alarm.silence` | `{"days": N}` | ⚠ accepted, **effect unobservable** — see below |
-| `awayMode.alert.clear` | `{}` | accepted, **effect unobservable** |
-| `salt.slm.set` | `{}` | untested — salt level monitor trigger |
-| `property.set` | `{"<property_name>": <value>}` | ⚠ **cloud accepts, device ignores** on gbx1 — see below |
+| `telemetry.get` | `{}` | Forces a device poll |
+| `salt.set` | `{"level": 25\|50\|75\|100}` | Sets the salt level the unit counts down from |
+| `awayMode.set` | `{"active": 0\|1}` | Away mode off or on |
+| `bypass.timed.on` | `{"duration": 30\|60\|90\|120\|180}` | Bypass for that many minutes |
+| `bypass.permanent.on` | `{}` | Bypass until cancelled |
+| `bypass.off` | `{}` | Cancels either bypass mode |
+| `regen.set` | `{"type": 1\|2}` | Regeneration; types below |
+| `timeDate.set` | `{"dateTimeValue": "M-d-yyyy_HH:mm:ss"}` | Sets the controller clock |
+| `alarm.silence` | `{"days": N}` | Accepted; no datapoint shows the effect |
+| `awayMode.alert.clear` | `{}` | Accepted; no datapoint shows the effect |
+| `salt.slm.set` | `{}` | Salt level monitor trigger |
+| `property.set` | `{"<property_name>": <value>}` | Accepted by the cloud; a gbx1 does not apply it |
 
-All param shapes above are read from `AzureDeviceCommandFactory` in the decompiled app, not guessed.
+`alarm.silence` hardcodes `days: 7`. `silenceAlert()` builds `{"days": 7}` from a literal
+(`const/4 v0, #int 7`) and the app offers no choice, so sending it suppresses alerts, real ones
+included, for a week.
 
-⚠ **`alarm.silence` hardcodes `days: 7`.** The app offers no choice — `silenceAlert()` builds
-`{"days": 7}` from a literal `const/4 v0, #int 7`. So invoking it suppresses alerts for a full
-week, including real ones. Not a no-op probe.
+`awayMode.alert.clear` and `salt.slm.set` construct the command with Kotlin's default-argument
+constructor and a null map, so they send no params.
 
-`awayMode.alert.clear` and `salt.slm.set` both construct the command with Kotlin's
-default-argument constructor and a null map, i.e. they genuinely send **no params**.
+`property.set` is called only by `setBypassSchedule(dsn, property, DeviceBypassSchedule)` on
+`CulliganGbx2Device`, a different model from the gbx1. Its property name comes from the caller
+and is not resolvable statically, so the writable property namespace is not recoverable from the
+app.
 
-`property.set` is only ever called by `setBypassSchedule(dsn, property, DeviceBypassSchedule)`,
-and that method lives on **`CulliganGbx2Device`** — a different model from the `gbx1` under test.
-Its property-name argument is supplied by the caller and was not resolvable statically, so the
-writable property namespace could not be recovered from the app.
+#### `property.set` on a gbx1
 
-#### `property.set` — tested on gbx1, and it does nothing
-
-Tested 2026-08-28 against a real `GBX1` while chasing a stuck capacity setting.
-`total_capacity_volume_tank_1` read 0, and the obvious repair was to write it:
+Writing the capacity datapoint, which read 0:
 
     POST /api/v1/device/command
     {"command": "property.set",
@@ -180,54 +169,41 @@ Tested 2026-08-28 against a real `GBX1` while chasing a stuck capacity setting.
 
     200 -> {"success": true, "data": {"requestId": "CC-..."}}
 
-**The cloud accepted it.** That alone is worth recording — the endpoint does not
-reject `property.set` for a gbx1, nor an unrecognised property name. But the
-device never applied it. The write went out at 23:35; the datapoint still read 0
-after 25 seconds, and still read 0 when the unit regenerated at 03:12 and reset
-`capacity_remaining_tank_1` to -500 rather than the +1500 a stored 2000-gallon
-capacity would have produced. The regeneration is the part that matters: that
-reset is computed by the controller, so it is the moment a stored capacity
-figure would have had to show itself.
+The endpoint rejects neither `property.set` for a gbx1 nor an unrecognised property name, and
+the device does not apply the write. The datapoint still read 0 after 25 seconds, and at the next
+regeneration the controller reset `capacity_remaining_tank_1` to -500 rather than the +1500 a
+stored 2000-gallon capacity would give. That reset is computed by the controller, so it is where a
+stored capacity would show.
 
-Transport was mirrored on `set_device_time.py` byte for byte — same
-`User-Agent: okhttp/4.12.0`, same envelope, same `requestId` format — precisely
-so that this result could not be blamed on an unfamiliar client. It is the
-command being ignored, not the request being malformed.
+The request mirrored the app's transport byte for byte: `User-Agent: okhttp/4.12.0`, the same
+envelope and the same `requestId` format. The command is ignored, not malformed.
 
-⚠ So a 200 from this endpoint is **especially** meaningless for `property.set`.
-Unlike `timeDate.set`, where a 200 preceded a change that a power cycle later
-confirmed, here a 200 precedes nothing at all. Do not build a write path on it
-without confirming the datapoint moved.
+A 200 from `property.set` therefore carries no information; a write path on it needs the
+datapoint to move. On this model `total_capacity_volume_tank_1` is derived, not stored: all four
+`aquasensor_z_*` datapoints read 0, and on a Smart HE the Aqua-Sensor determines working
+capacity.
 
-The practical conclusion for this model: `total_capacity_volume_tank_1` is
-**derived, not stored**. Consistent with all four `aquasensor_z_*` datapoints
-reading 0 — on a Smart HE the Aqua-Sensor is what determines working capacity —
-the controller computes this figure and a cloud write cannot displace it.
+#### `timeDate.set`
 
-#### `timeDate.set` — verified end to end
-
-The app exposes **no UI** for this, but the command works. Shape taken from
-`AzureDeviceCommandFactory.setDateTime(String dsn, LocalDateTime)` in the decompiled app:
+The app exposes no UI for this command. Shape from
+`AzureDeviceCommandFactory.setDateTime(String dsn, LocalDateTime)`:
 
     format pattern  "M-d-yyyy_HH:mm:ss"   -- NO leading zeros on month/day, 24h clock
     param key       "dateTimeValue"
     example         {"dateTimeValue": "8-10-2026_10:04:44"}
 
-Confirmed on real hardware 2026-08-10: the softener's clock was ~2.7 years behind
-(`last_power_up_time` reading `2023-11-06`). After sending `timeDate.set` and power-cycling,
-the device stamped the new boot as `2026-08-10 10:12:00` — correct date and correct local time.
+On a GBX1 whose clock was about 2.7 years behind (`last_power_up_time` 2023-11-06), the device
+stamped the next boot after `timeDate.set` and a power cycle with the correct local date and time.
 
-⚠ The clock change is **not observable without a reboot**. No datapoint exposes the device's
-current time, and `last_power_up_time` / `last_regen_date_time_*` are historical stamps that do
-not retroactively correct. A power cycle is the only way to confirm it took.
+No datapoint exposes the device's current time, and `last_power_up_time` and
+`last_regen_date_time_*` are historical stamps that do not retroactively correct, so a clock
+change shows only after a power cycle. The integration's `set_clock` action, *Sync controller
+clock* button and clock repair send this command.
 
-`set_device_time.py` in this directory implements it (dry-run by default; prompts for the
-password via getpass and never stores it).
+#### `regen.set` types
 
-#### `regen.set` type mapping — confirmed by controlled test
-
-A scheduled ("overnight") regen was triggered from the app, then an immediate one, and the
-telemetry was correlated against both:
+A scheduled ("overnight") regeneration was triggered from the app, then an immediate one, and the
+telemetry correlated against both:
 
     14:46:30  {"type": 2}  ->  last_regen_trigger_tank_1  5 -> 11   (scheduled)
     14:47:02  {"type": 1}  ->  last_regen_trigger_tank_1  11 -> 10  (immediate)
@@ -236,51 +212,43 @@ telemetry was correlated against both:
     type 1 = IMMEDIATE regeneration   -> trigger code 10, starts the cycle now
     type 2 = SCHEDULED/delayed regen  -> trigger code 11
 
-`time_rem_in_position` is a live minutes-remaining counter during an active cycle and is 0 when
-idle — a good progress sensor.
+`time_rem_in_position` counts minutes remaining during a cycle and is 0 when idle.
 
-⚠ `next_regen_date_time` did **not** change when the scheduled regen was set, and the date fields
-read implausibly:
+`next_regen_date_time` did not change when the scheduled regeneration was set, and the date
+fields read years in the past while a regeneration had completed minutes earlier:
 
     next_regen_date_time        = 2024-01-08 02:00:00
     last_regen_date_time_tank_1 = 2023-11-06 03:36:00
 
-…while a regeneration had actually completed minutes earlier, in 2026. Either these fields are
-stale placeholders the firmware does not maintain, or the device's RTC is years behind — which
-would explain the existence of `timeDate.set`. Do not build scheduling logic on these fields
-without confirming against the app UI first.
+These fields are stamped by the controller clock, which on that unit was 2.7 years behind (see
+`timeDate.set`). Scheduling logic built on them needs the clock set first.
 
-Note `salt.set` was only ever sent at 25/50/75/100 by the app's UI. Whether intermediate values
-are accepted is untested.
+The app's UI sends `salt.set` only at 25/50/75/100.
 
-The bypass family being three separate verbs rather than one boolean is notable: `bypass.timed.on`
-takes a duration, `bypass.permanent.on` does not, and `bypass.off` cancels either. An integration
-should model bypass as a switch plus an optional duration rather than a plain toggle.
+The bypass family is three verbs rather than one boolean: `bypass.timed.on` takes a duration,
+`bypass.permanent.on` does not, and `bypass.off` cancels either. The integration models bypass as
+a switch plus a timed action.
 
-Related telemetry/UI field names found alongside these, useful for mapping sensors:
+Related field names found alongside these:
 
     last_regen_date_time_tank_1 / _tank_2      next_regen_date_time
     last_regen_trigger_tank_1 / _tank_2        bypass_schedule_advanced_*
     bypassMode        bypassSchedule           bypassDurationOptions
 
-### Alarm / error datapoints
+### Alarm and error datapoints
 
     salt_alarm_mode            chem_feed_alarm_capacity   external_filter_alarm_capacity
     days_in_error              system_error_bit_flags
     errors                     <- device-side error LOG, array of {num, date}
 
-`errors` is the on-device fault history (10 entries retained on the unit under test), distinct
-from `/device/state`'s `errors[]`, which is the server's live view and is normally empty. Good
-material for a diagnostics sensor.
+`errors` is the on-device fault history (10 entries retained on a GBX1), distinct from
+`/device/state`'s `errors[]`, the server's live view, which is normally empty.
 
-⚠ `alarm.silence` produced **no observable change** in any of these when sent with no active
-alarm — `salt_alarm_mode` stayed 1 throughout. There is no `silence_until` or equivalent
-datapoint, so whether a silence window is active cannot be read back. Combined with the absence
-of an un-silence verb, this command is effectively **write-only and unverifiable**; avoid it in
-an integration.
+`alarm.silence` sent with no active alarm changed none of these; `salt_alarm_mode` stayed 1.
+There is no `silence_until` or equivalent datapoint and no un-silence verb, so a silence window
+can be neither read back nor cancelled. The integration does not send it.
 
-The app polls `telemetry.get` roughly every 10–20s while a device screen is open, which is a
-reasonable cue for integration poll intervals.
+The app polls `telemetry.get` roughly every 10-20 s while a device screen is open.
 
 ### Other writes
 
@@ -291,28 +259,19 @@ reasonable cue for integration poll intervals.
 | POST/PUT/DELETE | `/api/v1/notifications` | Notification rules |
 | POST | `/api/v1/notifications/channel/mobile` | Register push channel |
 
-## This device
+## Device identity
 
-    serialNumber   GBX1-0000AA000W000000000
+    serialNumber   GBX1-0000AA000W000000000   (format)
     model          GBX1 family  (app class: CulliganGbxDevice)
     hub            iot-eastus2-hub-main-production-us.azure-devices.net
 
-The `GBX1` prefix matches `CulliganGbxDevice`. Sibling classes in the app — `CulliganGbx2Device`,
-`CulliganAdvantageDevice`, `CulliganMonDevice`, `CulliganSroDevice`, `CulliganNovaDevice` — imply
-the same API serves the whole product line, so an integration built here should generalise.
+The `GBX1` prefix matches `CulliganGbxDevice`. The app, which talks to this one API, also
+carries `CulliganGbx2Device`, `CulliganAdvantageDevice`, `CulliganMonDevice`,
+`CulliganSroDevice` and `CulliganNovaDevice`.
 
-## Building on this
+## Summary
 
-`/device/registry` polled on an interval gives every sensor in one call. `POST /device/command`
-gives control. Auth is bearer + refresh. That is everything a Home Assistant integration needs, and
-it is materially better than the existing community integration, which targets Ayla and never got
-writes working.
+`/device/registry` polled on an interval gives every sensor in one call, and
+`POST /device/command` gives control. Auth is the login above, repeated on 401.
 
-Untested and worth confirming before relying on it: whether `expiresIn` is short enough to need
-active refresh handling, whether the API rate-limits polling, and what `regen.set` takes as params.
-
-## ⚠ Privacy note on the raw capture
-
-`mitm/capture/flows.jsonl` contains live `accessToken` / `refreshToken` values and, from
-`/device/registry`, the installation address, contact name, email, phone, dealer ID, account
-number, and lat/lon. Treat it as a secrets file. `api-summary.md` and this document are redacted.
+Raw captures are not in this repository: they carry live tokens and account details.
