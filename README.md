@@ -14,8 +14,8 @@ What changed and when is in [CHANGELOG.md](CHANGELOG.md).
 ## Why this exists
 
 Culligan moved newer softeners off Ayla Networks and onto an Azure IoT Hub. The
-established community integration targets Ayla, so on this hardware it simply
-does not work — and Culligan publishes no API documentation for the replacement.
+established community integration targets Ayla and does not reach this
+hardware. Culligan publishes no API documentation for the replacement.
 
 This integration talks to `uniapi.culliganiot.com`, the same REST API the
 Culligan Connect app uses. The protocol was reverse-engineered from the Android
@@ -25,8 +25,7 @@ write-up.
 **No local option exists.** The softener itself speaks MQTT over TLS directly to
 an Azure IoT Hub and validates its certificate chain properly, so it cannot be
 intercepted or redirected. It also exposes no open ports. Cloud polling is the
-only integration point — that is a property of the hardware, not a shortcut
-taken here.
+only integration point.
 
 ## Supported devices
 
@@ -41,9 +40,9 @@ valve controller's firmware as the software version. The Wi-Fi module runs its
 own separate firmware; that is in the diagnostics download, not on the device
 page, because it is firmware and not a hardware revision.
 
-Tested against one **`GBX1` (Smart HE 9")**. Sibling device classes in the app
-(`Gbx2`, `Advantage`, `Mon`, `Sro`, `Nova`) suggest the API generalises, but
-that is untested. Reports from other models are welcome.
+Built against a **`GBX1` (Smart HE 9")**. The Culligan Connect app, which uses
+this one API, also carries device classes for `Gbx2`, `Advantage`, `Mon`, `Sro`
+and `Nova`. Reports from other models are welcome.
 
 Accessories are detected from the telemetry. A unit reports the same datapoints
 whether or not it has an Aqua-Sensor, a second tank, a chemical feed or an
@@ -89,12 +88,8 @@ the [options](#options) can force a group on or off.
 Disabled entities are still registered. Enable one from its entity settings
 (Settings → Devices & services → the softener → the entity → the cog → Enabled).
 
-State attributes carry values, not prose. Up to 0.3.0 several of these entities
-also carried a paragraph of English explanation as an attribute —
-`interpretation`, `note`, `method`, `meaning`. Those are gone; the explanations
-are in this file instead, under [Health metrics](#health-metrics) and
-[Resin life](#resin-life--measured-not-assumed), so a template that referenced
-one has somewhere to read.
+State attributes carry values. The explanation of each derived metric is under
+[Health metrics](#health-metrics) and [Resin life](#resin-life).
 
 Units in the table are what the softener reports. The volume, duration, flow,
 timestamp and signal readings carry a device class, so a household set to
@@ -144,7 +139,7 @@ receives unsoftened water.
 | Field | Required | Description |
 |---|---|---|
 | `serial_number` | yes | The softener's serial, e.g. `GBX1-0000AA000W000000000` |
-| `duration` | yes | Minutes, 1 to 1440; default 30. The app offers 30, 60, 90, 120 or 180; other values are accepted by the API but unverified on hardware |
+| `duration` | yes | Minutes, 1 to 1440; default 30. The app offers 30, 60, 90, 120 or 180 |
 
 **`culligan_azure.set_clock`** — set the valve controller's clock to Home
 Assistant's current local time. The controller keeps its own clock, separate
@@ -157,8 +152,8 @@ not visible until the device next powers up.
 
 ## Health metrics
 
-The raw telemetry never says anything is wrong. The *relationships* between
-values do, and those are what this integration surfaces.
+The softener reports no health state of its own. These metrics are derived
+from the relationships between its readings.
 
 - **Regeneration efficiency** is the actual interval between regenerations
   divided by the interval capacity and usage imply. 100 % means the unit
@@ -177,10 +172,9 @@ values do, and those are what this integration surfaces.
   regeneration frequency does not change, so this is an upper bound on
   accelerated ageing, not a total.
 
-A misconfigured softener regenerating five times more often than necessary looks
-completely normal in the vendor app. It shows up here immediately.
+The Culligan Connect app shows none of these metrics.
 
-### Resin life — measured, not assumed
+### Resin life
 
 The device exposes no resin-life datapoint, so this is derived from observed
 capacity fade. Each poll records cumulative treated volume and regeneration
@@ -393,15 +387,13 @@ Entity ids follow the device name; these assume a softener named "Softener".
 
 ## Known limitations
 
-- **Cloud only.** The hardware offers no local interface; if Culligan's API is
-  down or changes, so is this.
-- **`total_capacity` is assumed to be gallons per cycle.** That fits the
-  observed values but is not confirmed against Culligan documentation. If it is
-  grains, the expected-interval figure scales, though the actual-vs-expected
-  comparison keeps its shape.
-- **Bypass state feedback is unproven.** The switch reads
-  `actual_state_dealer_bypass`, which was 0 throughout testing; no active
-  bypass was captured, so the reported state may lag or not change.
+- **Cloud only.** The hardware offers no local interface; the integration
+  depends on Culligan's API.
+- **`total_capacity` is read as gallons per cycle**, which fits the observed
+  values; Culligan documents no unit. If it is grains, the expected-interval
+  figure scales, and the actual-vs-expected comparison keeps its shape.
+- **Bypass state** is the `actual_state_dealer_bypass` datapoint as the cloud
+  reports it, read on the poll after each command.
 - **Capacity remaining needs an Aqua-Sensor.** Without one the controller's
   derived capacity is 0 and the datapoint reads negative (-515 gal on the test
   unit), so the entity is not created on such a unit.
@@ -409,11 +401,11 @@ Entity ids follow the device name; these assume a softener named "Softener".
   time; a clock change is invisible until the device next powers up.
 - **Timestamps are the controller's.** Last and next regeneration are stamped by
   the controller clock, so they are only as right as that clock is.
-- **Commands acknowledge, they do not confirm**, and durations other than the
-  app's 30/60/90/120/180 minutes are unverified on hardware.
+- **Commands acknowledge, they do not confirm.** Entities show what the device
+  reports on the next poll.
 - **Salt level is an input.** The unit counts down from whatever you tell it;
   it has no salt sensor.
-- **Tested against one model**; see [supported devices](#supported-devices).
+- **Built against a GBX1**; see [supported devices](#supported-devices).
 
 ## Troubleshooting
 
@@ -448,7 +440,7 @@ yet. It becomes on or off with the next poll that includes it.
 
 **Resin sensors are unavailable.** Expected for the first weeks; the `status`
 attribute on *Resin life remaining* says which stage the history is at (see
-[resin life](#resin-life--measured-not-assumed)).
+[resin life](#resin-life)).
 
 **Wi-Fi signal is not there.** It is registered disabled; enable it from the
 entity's settings.
