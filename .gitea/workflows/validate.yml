@@ -1,6 +1,6 @@
 name: Validate
 
-# Runs on the self-hosted act_runner on gpurack2. GitHub is the primary CI
+# Runs on the forge's self-hosted act_runner. GitHub is the primary CI
 # (.github/workflows/tests.yml and validate.yml); this is the forge's copy.
 #
 # THE RUNNER IS SHARED AND ITS CAPACITY IS 1. Other agent sessions queue behind
