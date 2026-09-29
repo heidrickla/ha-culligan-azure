@@ -266,7 +266,7 @@
         },
         "duration": {
           "name": "Duration",
-          "description": "Minutes. The app offers 30, 60, 90, 120 or 180; other values are accepted by the API but unverified on hardware."
+          "description": "Minutes, 1 to 1440. The app offers 30, 60, 90, 120 or 180."
         }
       }
     },

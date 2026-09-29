@@ -31,9 +31,8 @@ async def async_setup_entry(
 class CulliganSaltLevelNumber(CulliganEntity, NumberEntity):
     """Tell the softener how full the salt tank is, after a refill.
 
-    Verified: salt.set {"level": N}. The app only ever offers 25/50/75/100, so
-    intermediate values are accepted by the API but unproven on the device --
-    hence the step of 25 rather than 1.
+    salt.set {"level": N}. The app offers 25/50/75/100, so the step is 25
+    rather than 1.
 
     This is an input, not a measurement: the unit has no salt sensor on this
     model and simply counts down from whatever you tell it.
