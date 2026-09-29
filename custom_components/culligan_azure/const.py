@@ -2,7 +2,7 @@
 
 DOMAIN = "culligan_azure"
 # Kept equal to manifest.json's version; tools/validate_local.py checks it.
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 SERVICE_BYPASS_TIMED = "bypass_timed"
 SERVICE_SET_CLOCK = "set_clock"

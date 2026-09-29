@@ -168,8 +168,7 @@ def _register_services(hass: HomeAssistant) -> None:
         """Bypass for a fixed number of minutes.
 
         Exposed as a service rather than an entity because a duration cannot be
-        expressed through a switch. The app offers 30/60/90/120/180; other
-        values are accepted by the API but unverified on hardware.
+        expressed through a switch. The app offers 30/60/90/120/180.
         """
         serial = call.data["serial_number"]
         coord = _find_coordinator(serial)

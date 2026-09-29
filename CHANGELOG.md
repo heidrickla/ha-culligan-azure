@@ -4,6 +4,20 @@ All notable changes to this integration are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), newest first, and the
 version numbers match `manifest.json`.
 
+## [0.3.1] - 2026-09-29
+
+### Changed
+
+- The `bypass_timed` action's duration field states its range, 1 to 1440
+  minutes, beside the durations the app offers.
+- The README and `docs/culligan_azure_api.md` state current facts only. The API
+  document's auth summary matches the measured behaviour: login repeated on
+  401, no refresh token.
+
+### Development
+
+- The forge's hassfest job uses the same action pin as GitHub's.
+
 ## [0.3.0] - 2026-09-04
 
 Home Assistant **2026.3.0** is now the minimum. That is the first release which
