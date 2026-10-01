@@ -149,7 +149,7 @@ Counter resets from a firmware reflash are detected and skipped. History is stor
 
 ## Installation
 
-**Home Assistant 2026.3.0 or newer.** That is the first release which serves an integration's own brand images, and this integration ships its icon and logo in-repo; on anything older the icon would be a placeholder.
+**Home Assistant 2026.8.0 or newer.** A device belongs to one config entry from 2026.8, and a softener that leaves the account has its device removed with `async_remove_device`, the call that replaces the config-entry parameters removed in 2027.8. The brand images ship in-repo, which Home Assistant serves from 2026.3.
 
 **HACS** — add this repository as a custom repository (category: Integration), install, restart Home Assistant.
 
