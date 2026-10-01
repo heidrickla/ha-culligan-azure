@@ -59,9 +59,7 @@ def async_remove_stale_devices(
     for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
         owned = {i for d, i in device.identifiers if d == DOMAIN}
         if owned and not owned & serials:
-            devices.async_update_device(
-                device.id, remove_config_entry_id=entry.entry_id
-            )
+            devices.async_remove_device(device.id)
 
 
 @callback

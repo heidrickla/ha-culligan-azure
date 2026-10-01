@@ -2,6 +2,12 @@
 
 All notable changes to this integration are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), newest first, and the version numbers match `manifest.json`.
 
+## [0.3.2] - 2026-10-01
+
+### Changed
+
+- Requires Home Assistant 2026.8.0. A softener that leaves the account has its device removed with `async_remove_device`; the `remove_config_entry_id` parameter it replaces is removed in Home Assistant 2027.8.
+
 ## [0.3.1] - 2026-09-29
 
 ### Changed
