@@ -12,8 +12,11 @@ coverage.json
 Thumbs.db
 .DS_Store
 
-# Local Claude orientation doc - keep out of the repo
+# Local agent files - keep out of the repo
 CLAUDE.md
+AGENTS.md
+CONTRIBUTING.md
+.cursorrules
 
 # Local hardware-test credentials - never commit
 .test_credentials.env
