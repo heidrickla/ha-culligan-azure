@@ -94,6 +94,8 @@ Units in the table are what the softener reports. The volume, duration, flow, ti
 
 Commands are acknowledged, not confirmed: a success from the cloud means it queued the request, not that the device acted. Every control refreshes afterwards so entities reflect what the device reports, not what was asked.
 
+Salt level, Sync controller clock and the `culligan_azure.set_clock` action reprogram the controller and are for administrators. A signed-in user who is not an administrator gets an authorization error and nothing is sent. Automations and scripts run without a user and are unaffected. Away mode, bypass and regeneration are open to every user.
+
 ### Actions
 
 Both actions name the softener by serial number. The serial is on the device page in Home Assistant and in the Culligan Connect app.

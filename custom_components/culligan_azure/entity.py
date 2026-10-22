@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -19,6 +20,19 @@ class CulliganEntity(CoordinatorEntity[CulliganCoordinator]):
     def __init__(self, coordinator: CulliganCoordinator, serial: str) -> None:
         super().__init__(coordinator)
         self._serial = serial
+
+    async def _async_require_admin(self) -> None:
+        """Refuse a signed-in user who is not an administrator.
+
+        For controls that reprogram the softener. A call with no user (an
+        automation or a script) passes.
+        """
+        context = self._context
+        if context is None or context.user_id is None:
+            return
+        user = await self.hass.auth.async_get_user(context.user_id)
+        if user is None or not user.is_admin:
+            raise Unauthorized(context=context)
 
     @property
     def _entry(self) -> dict[str, Any]:

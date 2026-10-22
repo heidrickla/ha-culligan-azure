@@ -24,6 +24,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -186,8 +187,11 @@ def _register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_BYPASS_TIMED, _bypass_timed, schema=BYPASS_TIMED_SCHEMA
     )
-    hass.services.async_register(
-        DOMAIN, SERVICE_SET_CLOCK, _set_clock, schema=SET_CLOCK_SCHEMA
+    # Setting the controller clock reprograms the softener, so only an
+    # administrator may call it. A call with no user (an automation or a
+    # script) passes.
+    async_register_admin_service(
+        hass, DOMAIN, SERVICE_SET_CLOCK, _set_clock, schema=SET_CLOCK_SCHEMA
     )
 
 

@@ -2,6 +2,12 @@
 
 All notable changes to this integration are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), newest first, and the version numbers match `manifest.json`.
 
+## [Unreleased]
+
+### Changed
+
+- The `culligan_azure.set_clock` action registers as an administrator action. The Sync controller clock button and the Salt level number refuse a signed-in user who is not an administrator. Automations and scripts are unaffected; away mode, bypass and regeneration stay open to every user.
+
 ## [0.3.2] - 2026-10-01
 
 ### Changed

@@ -106,6 +106,7 @@ class CulliganSetClockButton(CulliganEntity, ButtonEntity):
         self._attr_unique_id = f"{serial}_set_clock"
 
     async def async_press(self) -> None:
+        await self._async_require_admin()
         await self.coordinator.async_send_and_refresh(
             self.coordinator.client.async_set_datetime(self._serial)
         )

@@ -8,7 +8,8 @@ also where the auth-failure path that starts reauthentication is proven.
 from unittest.mock import patch
 
 import pytest
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import Context
+from homeassistant.exceptions import HomeAssistantError, Unauthorized
 
 from custom_components.culligan_azure.api import CulliganAuthError, CulliganError
 from custom_components.culligan_azure.const import DOMAIN
@@ -199,3 +200,87 @@ async def test_the_set_clock_action_sends_the_command(hass, config_entry):
         )
     command.assert_awaited_once()
     assert command.await_args.args[0] == SERIAL
+
+
+async def _household_member(hass):
+    """A signed-in user in the ordinary users group, as a household account is.
+
+    The first person account is the owner, and the owner is an administrator.
+    """
+    if not any(u.is_owner for u in await hass.auth.async_get_users()):
+        await hass.auth.async_create_user("Owner")
+    user = await hass.auth.async_create_user("Household", group_ids=["system-users"])
+    assert not user.is_admin
+    return user
+
+
+async def _administrator(hass):
+    user = await hass.auth.async_create_user("Admin", group_ids=["system-admin"])
+    assert user.is_admin
+    return user
+
+
+_SET_CLOCK_ACTION = (DOMAIN, "set_clock", {"serial_number": SERIAL}, SET_DATETIME)
+_SYNC_CLOCK_BUTTON = (
+    "button",
+    "press",
+    {"entity_id": "button.softener_sync_controller_clock"},
+    SET_DATETIME,
+)
+_SALT_LEVEL = (
+    "number",
+    "set_value",
+    {"entity_id": "number.softener_salt_level", "value": 75},
+    SET_SALT,
+)
+_ADMIN_ONLY = [_SET_CLOCK_ACTION, _SYNC_CLOCK_BUTTON, _SALT_LEVEL]
+
+
+@pytest.mark.parametrize(("domain", "service", "data", "target"), _ADMIN_ONLY)
+async def test_a_reprogramming_control_is_refused_to_a_user_who_is_not_an_administrator(
+    hass, config_entry, domain, service, data, target
+):
+    await _setup(hass, config_entry)
+    member = await _household_member(hass)
+    with (
+        patch(target, return_value="CC") as command,
+        patch(DEVICES, return_value=[DEVICE]),
+        pytest.raises(Unauthorized),
+    ):
+        await hass.services.async_call(
+            domain, service, data, blocking=True, context=Context(user_id=member.id)
+        )
+    command.assert_not_awaited()
+
+
+@pytest.mark.parametrize(("domain", "service", "data", "target"), _ADMIN_ONLY)
+async def test_a_reprogramming_control_runs_for_an_administrator(
+    hass, config_entry, domain, service, data, target
+):
+    await _setup(hass, config_entry)
+    admin = await _administrator(hass)
+    with (
+        patch(target, return_value="CC") as command,
+        patch(DEVICES, return_value=[DEVICE]),
+    ):
+        await hass.services.async_call(
+            domain, service, data, blocking=True, context=Context(user_id=admin.id)
+        )
+    command.assert_awaited_once()
+
+
+async def test_regeneration_stays_open_to_a_household_member(hass, config_entry):
+    await _setup(hass, config_entry)
+    member = await _household_member(hass)
+    with (
+        patch(REGENERATE, return_value="CC") as command,
+        patch(DEVICES, return_value=[DEVICE]),
+    ):
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.softener_regenerate_now"},
+            blocking=True,
+            context=Context(user_id=member.id),
+        )
+    command.assert_awaited_once()

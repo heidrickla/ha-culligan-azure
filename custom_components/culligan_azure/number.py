@@ -55,6 +55,7 @@ class CulliganSaltLevelNumber(CulliganEntity, NumberEntity):
         return float(v) if isinstance(v, (int, float)) else None
 
     async def async_set_native_value(self, value: float) -> None:
+        await self._async_require_admin()
         await self.coordinator.async_send_and_refresh(
             self.coordinator.client.async_set_salt_level(self._serial, int(value))
         )
