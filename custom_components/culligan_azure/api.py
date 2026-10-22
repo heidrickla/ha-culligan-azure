@@ -28,6 +28,8 @@ BASE_URL = "https://uniapi.culliganiot.com"
 # Constant the Android app sends with every login.
 APP_ID = "OAhRjZjfBSwKLV8MTCjscAdoyJKzjxQW"
 REQUEST_TIMEOUT = 30
+# Longest code or message carried from a response into an error.
+_DETAIL_LIMIT = 120
 
 
 class CulliganError(Exception):
@@ -36,6 +38,26 @@ class CulliganError(Exception):
 
 class CulliganAuthError(CulliganError):
     """Credentials rejected."""
+
+
+def _error_detail(body: object) -> str:
+    """The code and message a refusal carries, never the rest of the body.
+
+    The cloud answers {"error": {"code": ..., "message": ...}} or puts the two
+    fields at the top level. Errors reach logs and the UI, so nothing else in
+    the response is quoted.
+    """
+    if not isinstance(body, dict):
+        return "no error detail"
+    source = body.get("error")
+    if not isinstance(source, dict):
+        source = body
+    parts = [
+        str(source[key])[:_DETAIL_LIMIT]
+        for key in ("code", "message")
+        if isinstance(source.get(key), (str, int))
+    ]
+    return " ".join(parts) or "no error detail"
 
 
 class CulliganApiClient:
@@ -71,7 +93,9 @@ class CulliganApiClient:
                     raise CulliganError(f"login failed: HTTP {resp.status}")
                 body = await resp.json(content_type=None)
                 if not isinstance(body, dict) or not body.get("success"):
-                    raise CulliganError(f"login failed: HTTP {resp.status} {body}")
+                    raise CulliganError(
+                        f"login failed: HTTP {resp.status} {_error_detail(body)}"
+                    )
                 self._token = body["data"]["accessToken"]
         except (aiohttp.ClientError, ValueError) as err:
             raise CulliganError(f"login transport error: {err}") from err
@@ -160,7 +184,7 @@ class CulliganApiClient:
         }
         body = await self._request("POST", "/api/v1/device/command", payload)
         if not body.get("success"):
-            raise CulliganError(f"command {command} rejected: {body}")
+            raise CulliganError(f"command {command} rejected: {_error_detail(body)}")
         request_id: str = body.get("data", {}).get("requestId", "")
         return request_id
 

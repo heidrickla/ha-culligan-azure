@@ -136,6 +136,25 @@ async def test_a_200_that_is_not_a_successful_login_is_an_error(cloud, session):
         await make_client(session).async_login()
 
 
+async def test_a_refused_login_quotes_only_the_code_and_message(cloud, session):
+    """The error text reaches logs and the UI, so the rest of the body stays out."""
+    cloud.queue(
+        LOGIN,
+        payload={
+            "success": False,
+            "error": {"code": "E401", "message": "INVALID_CREDENTIALS"},
+            "data": {"accessToken": "leaked-token", "email": "someone@example.com"},
+        },
+    )
+    with pytest.raises(api.CulliganError) as err:
+        await make_client(session).async_login()
+    text = str(err.value)
+    assert "E401" in text
+    assert "INVALID_CREDENTIALS" in text
+    assert "leaked-token" not in text
+    assert "someone@example.com" not in text
+
+
 async def test_an_html_page_answered_as_200_does_not_crash(cloud, session):
     """Status is checked before the body is parsed, so an HTML page surfaces
     as an error rather than a decode failure escaping the handler."""
@@ -244,6 +263,38 @@ async def test_a_command_the_cloud_rejects_raises(cloud, session):
     cloud.queue(COMMAND, payload={"success": False, "message": "bad command"})
     with pytest.raises(api.CulliganError):
         await make_client(session).async_send_command(SERIAL, "nope")
+
+
+async def test_a_rejected_command_quotes_only_the_code_and_message(cloud, session):
+    cloud.queue(LOGIN, payload=TOKEN_BODY)
+    cloud.queue(
+        COMMAND,
+        payload={
+            "success": False,
+            "message": "bad command",
+            "data": {"requestId": "CC-1", "accessToken": "leaked-token"},
+        },
+    )
+    with pytest.raises(api.CulliganError) as err:
+        await make_client(session).async_send_command(SERIAL, "nope")
+    text = str(err.value)
+    assert "bad command" in text
+    assert "leaked-token" not in text
+    assert "CC-1" not in text
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ({"success": False}, "no error detail"),
+        ({"success": False, "error": {"message": "INVALID_TOKEN"}}, "INVALID_TOKEN"),
+        ({"success": False, "code": 7, "message": "x" * 500}, "7 " + "x" * 120),
+        ({"success": False, "message": {"nested": "secret"}}, "no error detail"),
+        (["not", "an", "object"], "no error detail"),
+    ],
+)
+def test_the_error_detail_carries_scalar_code_and_message_only(body, expected):
+    assert api._error_detail(body) == expected
 
 
 async def test_every_command_wrapper_sends_the_shape_the_device_expects(cloud, session):
