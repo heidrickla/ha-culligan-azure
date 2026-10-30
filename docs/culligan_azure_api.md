@@ -4,8 +4,6 @@ Recovered from the Android app (`com.culligan.connect` 3.7.17, versionCode 264) 
 
 Base URL: `https://uniapi.culliganiot.com` App config: `https://static.culliganiot.com/appconfig/culligan-connect/appconfig.json`
 
-The app does not pin certificates (OkHttp is bundled but `CertificatePinner` is never configured) and declares no `networkSecurityConfig`, so a system-store CA is enough to intercept.
-
 ## Architecture
 
     Softener  ──MQTT/TLS──▶  Azure IoT Hub  ◀──  Culligan backend  ◀──REST──  App / this API

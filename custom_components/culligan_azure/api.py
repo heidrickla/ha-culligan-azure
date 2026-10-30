@@ -1,7 +1,6 @@
 """Async client for the Culligan Connect cloud API (Azure-backed devices).
 
-Protocol documented in docs/culligan_azure_api.md, derived by TLS interception
-of the Android app plus decompilation of AzureDeviceCommandFactory.
+Protocol documented in docs/culligan_azure_api.md.
 
 Two behaviours worth knowing, both learned the hard way:
 

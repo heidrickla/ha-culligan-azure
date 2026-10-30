@@ -44,7 +44,7 @@ jobs:
       - name: JSON is valid
         timeout-minutes: 15
         run: |
-          for f in custom_components/culligan_azure/*.json hacs.json; do
+          for f in custom_components/culligan_azure/*.json custom_components/culligan_azure/translations/*.json hacs.json; do
             python -c "import json,sys; json.load(open(sys.argv[1],encoding='utf-8'))" "$f" || exit 1
           done
           echo "all JSON valid"

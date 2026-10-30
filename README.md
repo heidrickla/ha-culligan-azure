@@ -1,8 +1,8 @@
-# Culligan (Azure) — Home Assistant integration
+# Culligan (Azure) for Home Assistant
 
-[![Tests](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/tests.yml/badge.svg)](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/tests.yml) [![Validate](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/validate.yml/badge.svg)](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/validate.yml) [![hacs](https://img.shields.io/badge/HACS-custom-41BDF5.svg)](https://hacs.xyz) [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Tests](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/tests.yml/badge.svg)](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/tests.yml) [![Validate](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/validate.yml/badge.svg)](https://github.com/heidrickla/ha-culligan-azure/actions/workflows/validate.yml) [![hacs](https://img.shields.io/badge/HACS-default-41BDF5.svg)](https://hacs.xyz) [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-Home Assistant integration for Culligan water softeners on the **Azure IoT / `culliganiot.com`** backend — the newer hardware that the existing community integration cannot reach.
+Home Assistant integration for Culligan water softeners on the Azure IoT backend (`culliganiot.com`), the newer hardware that the existing community integration cannot reach.
 
 What changed and when is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -12,7 +12,7 @@ Culligan moved newer softeners off Ayla Networks and onto an Azure IoT Hub. The 
 
 This integration talks to `uniapi.culliganiot.com`, the same REST API the Culligan Connect app uses. The protocol was reverse-engineered from the Android app; see [`docs/culligan_azure_api.md`](docs/culligan_azure_api.md) for the full write-up.
 
-**No local option exists.** The softener itself speaks MQTT over TLS directly to an Azure IoT Hub and validates its certificate chain properly, so it cannot be intercepted or redirected. It also exposes no open ports. Cloud polling is the only integration point.
+No local option exists. The softener itself speaks MQTT over TLS directly to an Azure IoT Hub and validates its certificate chain properly, so it cannot be intercepted or redirected. It also exposes no open ports. Cloud polling is the only integration point.
 
 ## Supported devices
 
@@ -20,7 +20,7 @@ Any softener that appears in the Culligan Connect app and is served by `uniapi.c
 
 The device page carries the manufacturer, the model, the serial number and the valve controller's firmware as the software version. The Wi-Fi module runs its own separate firmware; that is in the diagnostics download, not on the device page, because it is firmware and not a hardware revision.
 
-Built against a **`GBX1` (Smart HE 9")**. The Culligan Connect app, which uses this one API, also carries device classes for `Gbx2`, `Advantage`, `Mon`, `Sro` and `Nova`. Reports from other models are welcome.
+Built against a `GBX1` (Smart HE 9"). The Culligan Connect app, which uses this one API, also carries device classes for `Gbx2`, `Advantage`, `Mon`, `Sro` and `Nova`. Reports from other models are welcome.
 
 Accessories are detected from the telemetry. A unit reports the same datapoints whether or not it has an Aqua-Sensor, a second tank, a chemical feed or an external filter; the ones for absent hardware read zero. Entities that only mean something with the hardware fitted are created only when it is detected, and the [options](#options) can force a group on or off.
 
@@ -44,7 +44,7 @@ Accessories are detected from the telemetry. A unit reports the same datapoints 
 | Next regeneration | timestamp | Stamped by the controller clock |
 | Regeneration interval (actual) | d | How often it really cycles |
 | Regeneration interval (expected) | d | How often capacity and usage imply it should |
-| Regeneration efficiency | % | actual ÷ expected |
+| Regeneration efficiency | % | Actual divided by expected |
 | Excess regenerations per year | | Cycles beyond what is needed |
 | Resin life remaining | years | Measured from capacity fade; see below |
 | Resin capacity fade | % | Drop in gallons per cycle since tracking began |
@@ -53,13 +53,13 @@ Accessories are detected from the telemetry. A unit reports the same datapoints 
 | Fault log entries | | Diagnostic |
 | Days since service | d | Diagnostic |
 | Hardness setting | gpg | Diagnostic |
-| Wi-Fi signal | dBm | Diagnostic, **disabled by default** |
-| Last power up | timestamp | Diagnostic, **disabled by default** |
-| Regenerations lifetime | | Diagnostic, **disabled by default** |
-| Capacity per regeneration (lifetime avg) | gal | Diagnostic, **disabled by default** |
-| Aqua-Sensor ratio, Aqua-Sensor minimum | | Aqua-Sensor units only, diagnostic, **disabled by default** |
+| Wi-Fi signal | dBm | Diagnostic, disabled by default |
+| Last power up | timestamp | Diagnostic, disabled by default |
+| Regenerations lifetime | | Diagnostic, disabled by default |
+| Capacity per regeneration (lifetime avg) | gal | Diagnostic, disabled by default |
+| Aqua-Sensor ratio, Aqua-Sensor minimum | | Aqua-Sensor units only, diagnostic, disabled by default |
 
-Disabled entities are still registered. Enable one from its entity settings (Settings → Devices & services → the softener → the entity → the cog → Enabled).
+Disabled entities are still registered. Enable one from its entity settings (Settings, Devices & services, the softener, the entity, the cog, Enabled).
 
 State attributes carry values. The explanation of each derived metric is under [Health metrics](#health-metrics) and [Resin life](#resin-life).
 
@@ -74,18 +74,18 @@ Units in the table are what the softener reports. The volume, duration, flow, ti
 | Regenerating | | On while the position timer runs; unknown until the unit reports it |
 | Regeneration pending tonight | | |
 | Aqua-Sensor auto rinse | | Aqua-Sensor units only, diagnostic |
-| **Over-regenerating** | problem | Cycles more than twice as often as capacity and usage justify |
-| **Fault present** | problem | Active error flags; most frequent code as an attribute |
-| **Resin replacement due** | problem | Under one year of resin life on a confident trend |
-| **Service overdue** | problem | Past 365 days since last service |
-| **Controller clock wrong** | problem | The controller's clock is years out; see [troubleshooting](#troubleshooting) |
+| Over-regenerating | problem | Cycles more than twice as often as capacity and usage justify |
+| Fault present | problem | Active error flags; most frequent code as an attribute |
+| Resin replacement due | problem | Under one year of resin life on a confident trend |
+| Service overdue | problem | Past 365 days since last service |
+| Controller clock wrong | problem | The controller's clock is years out; see [troubleshooting](#troubleshooting) |
 
 ### Controls
 
 | Entity | Type | What it does |
 |---|---|---|
 | Away mode | switch | Vacation mode on or off |
-| Bypass | switch | Permanent bypass on or off. **While bypassed the house receives unsoftened water** |
+| Bypass | switch | Permanent bypass on or off. While bypassed the house receives unsoftened water |
 | Salt level | number | Tell the unit how full the tank is after a refill: 0, 25, 50, 75 or 100 % |
 | Regenerate now | button | Starts a cycle immediately. Uses salt and backwash water |
 | Schedule regeneration | button | Regenerates at the next scheduled time |
@@ -100,14 +100,18 @@ Salt level, Sync controller clock and the `culligan_azure.set_clock` action repr
 
 Both actions name the softener by serial number. The serial is on the device page in Home Assistant and in the Culligan Connect app.
 
-**`culligan_azure.bypass_timed`** — bypass for a fixed number of minutes, after which the unit returns to softening on its own. While bypassed the house receives unsoftened water.
+#### `culligan_azure.bypass_timed`
+
+Bypass for a fixed number of minutes, after which the unit returns to softening on its own. While bypassed the house receives unsoftened water.
 
 | Field | Required | Description |
 |---|---|---|
 | `serial_number` | yes | The softener's serial, e.g. `GBX1-0000AA000W000000000` |
 | `duration` | yes | Minutes, 1 to 1440; default 30. The app offers 30, 60, 90, 120 or 180 |
 
-**`culligan_azure.set_clock`** — set the valve controller's clock to Home Assistant's current local time. The controller keeps its own clock, separate from the Wi-Fi module's NTP-synced one, and nothing else syncs it. The change is not visible until the device next powers up.
+#### `culligan_azure.set_clock`
+
+Sets the valve controller's clock to Home Assistant's current local time. The controller keeps its own clock, separate from the Wi-Fi module's NTP-synced one, and nothing else syncs it. The change is not visible until the device next powers up.
 
 | Field | Required | Description |
 |---|---|---|
@@ -117,10 +121,10 @@ Both actions name the softener by serial number. The serial is on the device pag
 
 The softener reports no health state of its own. These metrics are derived from the relationships between its readings.
 
-- **Regeneration efficiency** is the actual interval between regenerations divided by the interval capacity and usage imply. 100 % means the unit regenerates exactly as often as its capacity implies; below 100 % means it regenerates more often than needed and is wasting salt and backwash water.
-- **Excess regenerations per year** counts the cycles beyond what capacity and usage imply. Multiply by your salt dose and backwash volume per cycle for the annual waste.
-- **Over-regenerating** fires when the efficiency falls under 50 %. That is usually a hardness, resin-capacity or flow-meter configuration problem.
-- **Resin cycle age** is the years of *normal* cycling the resin has experienced, from the regeneration count alone. Compare it with the `calendar_age_years` attribute: a higher value means the resin is being cycled harder than it should be. It covers osmotic shock and backwash attrition only; oxidation by chlorine scales with treated volume, which regeneration frequency does not change, so this is an upper bound on accelerated ageing, not a total.
+- Regeneration efficiency is the actual interval between regenerations divided by the interval capacity and usage imply. 100 % means the unit regenerates exactly as often as its capacity implies; below 100 % means it regenerates more often than needed and is wasting salt and backwash water.
+- Excess regenerations per year counts the cycles beyond what capacity and usage imply. Multiply by your salt dose and backwash volume per cycle for the annual waste.
+- Over-regenerating fires when the efficiency falls under 50 %. That is usually a hardness, resin-capacity or flow-meter configuration problem.
+- Resin cycle age is the years of *normal* cycling the resin has experienced, from the regeneration count alone. Compare it with the `calendar_age_years` attribute: a higher value means the resin is being cycled harder than it should be. It covers osmotic shock and backwash attrition only; oxidation by chlorine scales with treated volume, which regeneration frequency does not change, so this is an upper bound on accelerated ageing, not a total.
 
 The Culligan Connect app shows none of these metrics.
 
@@ -134,7 +138,7 @@ capacity_per_cycle = Δgallons / Δregenerations
 
 A least-squares fit of that series against time gives the fade rate, extrapolated to 60 % of the observed baseline.
 
-**It needs history** — roughly three weeks before it reports anything, and it keeps narrowing for months. Until then the resin sensors are unavailable and the `status` attribute on *Resin life remaining* says why:
+It needs history: roughly three weeks before it reports anything, and it keeps narrowing for months. Until then the resin sensors are unavailable and the `status` attribute on *Resin life remaining* says why:
 
 | `status` | Meaning |
 |---|---|
@@ -151,15 +155,22 @@ Counter resets from a firmware reflash are detected and skipped. History is stor
 
 ## Installation
 
-**Home Assistant 2026.8.0 or newer.** A device belongs to one config entry from 2026.8, and a softener that leaves the account has its device removed with `async_remove_device`, the call that replaces the config-entry parameters removed in 2027.8. The brand images ship in-repo, which Home Assistant serves from 2026.3.
+Requires Home Assistant 2026.8.0 or newer. A device belongs to one config entry from 2026.8, and a softener that leaves the account has its device removed with `async_remove_device`, the call that replaces the config-entry parameters removed in 2027.8. The brand images ship in-repo, which Home Assistant serves from 2026.3.
 
-**HACS** — add this repository as a custom repository (category: Integration), install, restart Home Assistant.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=heidrickla&repository=ha-culligan-azure&category=integration)
 
-**Manual** — copy `custom_components/culligan_azure/` into your `config/custom_components/`, restart.
+1. Press the button above, then Download in HACS, and restart Home Assistant when it asks.
+2. Press this button to start the setup:
 
-Then **Settings → Devices & services → Add integration → Culligan (Azure)**.
+[![Open your Home Assistant instance and start setting up Culligan (Azure).](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=culligan_azure)
 
-There is no discovery to wait for. The softener has no local interface, so nothing on the network announces it and setup is always by hand.
+The setup is one screen:
+
+1. Culligan account: enter the email address and password you use in the Culligan Connect app, and press Submit. Every softener on the account is added.
+
+Without the buttons: in HACS, search for Culligan (Azure), download it and restart; then Settings, Devices & services, Add integration, Culligan (Azure). Manual install: copy `custom_components/culligan_azure/` into your configuration's `custom_components` folder and restart.
+
+There is no discovery to wait for. The softener has no local interface, so nothing on the network announces it.
 
 ### Installation parameters
 
@@ -172,11 +183,11 @@ The flow signs in and lists the account's devices before creating the entry, so 
 
 ## Options
 
-**Settings → Devices & services → Culligan (Azure) → Configure.**
+Settings, Devices & services, Culligan (Azure), Configure.
 
 | Option | Default | Description |
 |---|---|---|
-| Polling interval (seconds) | 120 | How often to poll the Culligan cloud, 30 to 3600. A softener changes slowly and the API is undocumented, so the default is deliberately gentle |
+| Polling interval (seconds) | 120 | How often to poll the Culligan cloud, 30 to 3600. A softener changes slowly and the API is undocumented, so the default is gentle |
 | Always show | none | Hardware groups to treat as fitted even when nothing in the telemetry says so: Aqua-Sensor, Second tank, Chemical feed, External filter |
 | Never show | none | Hardware groups to hide even if detected. Takes precedence over Always show |
 
@@ -184,32 +195,32 @@ Detection reads a group as present as soon as any of its datapoints reports a no
 
 ## Reconfiguring and re-authentication
 
-**Reconfigure** (the entry's menu → Reconfigure) changes the password, or corrects the email address, of the same account. Leave the password blank to keep the stored one. Credentials for a different account are refused; add that account as a new entry instead.
+Reconfigure (the entry's menu, Reconfigure) changes the password, or corrects the email address, of the same account. Leave the password blank to keep the stored one. Credentials for a different account are refused; add that account as a new entry instead.
 
-When Culligan rejects the stored credentials — after a password change, say — the entry asks for the new password and reloads once it is accepted. Nothing else needs to be done.
+When Culligan rejects the stored credentials, after a password change for example, the entry asks for the new password and reloads once it is accepted. Nothing else needs to be done.
 
 ## Repairs
 
-Some conditions are worth more than a sensor because you can fix them in one click. They appear under **Settings → System → Repairs**.
+Some conditions are worth more than a sensor because you can fix them in one click. They appear under Settings, System, Repairs.
 
 | Repair | When it appears | What Fix does |
 |---|---|---|
 | *The controller clock is wrong* | The softener's last power-up stamp is in the future, or two or more years in the past | Sets the valve controller's clock to Home Assistant's local time |
 
-The valve controller keeps its own clock, separate from the Wi-Fi module's NTP-synced one, and nothing syncs it — which is why it drifts and why setting it is a manual command.
+The valve controller keeps its own clock, separate from the Wi-Fi module's NTP-synced one, and nothing syncs it, which is why it drifts and why setting it is a manual command.
 
-The clock repair is raised per softener and clears itself on the poll that shows the clock right, or that shows the softener has left the account. If the command is refused — the unit is offline, say — the repair stays open rather than reporting a fix that did not happen. Rejected credentials do not raise a repair of their own: they start re-authentication, which Home Assistant already surfaces on the integration page.
+The clock repair is raised per softener and clears itself on the poll that shows the clock right, or that shows the softener has left the account. If the command is refused (the unit is offline, for example), the repair stays open rather than reporting a fix that did not happen. Rejected credentials do not raise a repair of their own: they start re-authentication, which Home Assistant already surfaces on the integration page.
 
 ## Removing a softener
 
 A softener sold, moved to another account or deleted in the Culligan Connect app disappears from Home Assistant on the next poll that no longer lists it, along with its entities. A poll that fails removes nothing: an empty result is a failed read, not an emptied account.
 
-If polls keep failing and a device you no longer have is still listed, open it on the integration page and choose **Delete**. Home Assistant refuses that for a softener the account still returns, so a live device cannot be deleted from under its own entities.
+If polls keep failing and a device you no longer have is still listed, open it on the integration page and choose Delete. Home Assistant refuses that for a softener the account still returns, so a live device cannot be deleted from under its own entities.
 
 ## Removing the integration
 
-1. **Settings → Devices & services → Culligan (Azure)**, open the entry's menu and choose **Delete**. This removes the devices and entities, closes any repairs it raised, and deletes the entry's resin-history store from `.storage`, so the measured resin trend is gone with it.
-2. If you no longer want the code: in HACS, open Culligan (Azure) and choose **Remove**, or delete `config/custom_components/culligan_azure/` by hand. Restart Home Assistant.
+1. Settings, Devices & services, Culligan (Azure): open the entry's menu and choose Delete. This removes the devices and entities, closes any repairs it raised, and deletes the entry's resin-history store from `.storage`, so the measured resin trend is gone with it.
+2. If you no longer want the code: in HACS, open Culligan (Azure) and choose Remove, or delete `config/custom_components/culligan_azure/` by hand. Restart Home Assistant.
 
 Nothing is changed on the softener or in the Culligan account.
 
@@ -285,39 +296,32 @@ Entity ids follow the device name; these assume a softener named "Softener".
 
 ## Known limitations
 
-- **Cloud only.** The hardware offers no local interface; the integration depends on Culligan's API.
-- **`total_capacity` is read as gallons per cycle**, which fits the observed values; Culligan documents no unit. If it is grains, the expected-interval figure scales, and the actual-vs-expected comparison keeps its shape.
-- **Bypass state** is the `actual_state_dealer_bypass` datapoint as the cloud reports it, read on the poll after each command.
-- **Capacity remaining needs an Aqua-Sensor.** Without one the controller's derived capacity is 0 and the datapoint reads negative (-515 gal on the test unit), so the entity is not created on such a unit.
-- **The clock is write-only.** No datapoint reports the controller's current time; a clock change is invisible until the device next powers up.
-- **Timestamps are the controller's.** Last and next regeneration are stamped by the controller clock, so they are only as right as that clock is.
-- **Commands acknowledge, they do not confirm.** Entities show what the device reports on the next poll.
-- **Salt level is an input.** The unit counts down from whatever you tell it; it has no salt sensor.
-- **Built against a GBX1**; see [supported devices](#supported-devices).
+- Cloud only. The hardware offers no local interface; the integration depends on Culligan's API.
+- `total_capacity` is read as gallons per cycle, which fits the observed values; Culligan documents no unit. If it is grains, the expected-interval figure scales, and the actual-vs-expected comparison keeps its shape.
+- Bypass state is the `actual_state_dealer_bypass` datapoint as the cloud reports it, read on the poll after each command.
+- Capacity remaining needs an Aqua-Sensor. Without one the controller's derived capacity is 0 and the datapoint reads negative (-515 gal on the test unit), so the entity is not created on such a unit.
+- The clock is write-only. No datapoint reports the controller's current time; a clock change is invisible until the device next powers up.
+- Timestamps are the controller's. Last and next regeneration are stamped by the controller clock, so they are only as right as that clock is.
+- Commands are acknowledged by the cloud, then entities show what the device reports on the next poll.
+- Salt level is an input. The unit counts down from whatever you tell it; it has no salt sensor.
+- Built against a GBX1; see [supported devices](#supported-devices).
 
 ## Troubleshooting
 
-**"Invalid email or password."** The Culligan cloud rejected the sign-in. Try the same credentials in the Culligan Connect app; if they work there, the API returned an unexpected status. Enable debug logging and open an issue.
+| Symptom | Cause and fix |
+|---|---|
+| "Invalid email or password." | The Culligan cloud rejected the sign-in. Try the same credentials in the Culligan Connect app; if they work there, the API returned an unexpected status. Enable debug logging and open an issue. |
+| "Could not reach the Culligan API." | Network or a Culligan outage. The integration keeps retrying on its own; nothing to do unless it persists. |
+| "Sign-in worked but no devices are registered to this account." | The account has no softener paired. Pair it in the Culligan Connect app first. |
+| The entry shows "Polling the Culligan cloud failed" | A poll failed and the entry is retrying. If it lasts, check the app still works. |
+| Re-authentication keeps being requested | The password changed, or Culligan invalidated the session. Enter the current app password once. |
+| Capacity remaining, Working capacity or the Aqua-Sensor entities are missing | The unit reported no Aqua-Sensor readings, so those entities were not created. If the hardware is fitted, add Aqua-Sensor under Always show in the options. |
+| Controller clock wrong is on | A repair appears under Settings, System, Repairs; Fix sets the clock. Pressing Sync controller clock or calling `culligan_azure.set_clock` does the same thing. The controller has no datapoint for its current time, so the sensor and the repair clear only after the unit next powers up; the `last_power_up_time` attribute shows the stamp being judged. |
+| Regenerating shows unknown | The unit has not reported the position timer yet. It becomes on or off with the next poll that includes it. |
+| Resin sensors are unavailable | Expected for the first weeks; the `status` attribute on Resin life remaining says which stage the history is at (see [resin life](#resin-life)). |
+| Wi-Fi signal is not there | It is registered disabled; enable it from the entity's settings. |
 
-**"Could not reach the Culligan API."** Network or a Culligan outage. The integration keeps retrying on its own; nothing to do unless it persists.
-
-**"Sign-in worked but no devices are registered to this account."** The account has no softener paired. Pair it in the Culligan Connect app first.
-
-**The entry shows "Polling the Culligan cloud failed".** A poll failed and the entry is retrying. If it lasts, check the app still works.
-
-**Re-authentication keeps being requested.** The password changed, or Culligan invalidated the session. Enter the current app password once.
-
-**Capacity remaining, Working capacity or the Aqua-Sensor entities are missing.** The unit reported no Aqua-Sensor readings, so those entities were not created. If the hardware is fitted, add Aqua-Sensor under *Always show* in the options.
-
-**Controller clock wrong is on.** A repair appears under Settings → System → Repairs; **Fix** sets the clock. Pressing *Sync controller clock* or calling `culligan_azure.set_clock` does the same thing. The controller has no datapoint for its current time, so the sensor and the repair clear only after the unit next powers up; the `last_power_up_time` attribute shows the stamp being judged.
-
-**Regenerating shows unknown.** The unit has not reported the position timer yet. It becomes on or off with the next poll that includes it.
-
-**Resin sensors are unavailable.** Expected for the first weeks; the `status` attribute on *Resin life remaining* says which stage the history is at (see [resin life](#resin-life)).
-
-**Wi-Fi signal is not there.** It is registered disabled; enable it from the entity's settings.
-
-**Debug logging.** Add to `configuration.yaml` and restart, or use *Enable debug logging* on the integration page:
+Debug logging: add this to `configuration.yaml` and restart, or use Enable debug logging on the integration page:
 
 ```yaml
 logger:
@@ -338,7 +342,7 @@ python tools/validate_local.py
 
 The first suite needs no Home Assistant: it covers the derived maths, the capability detector and the cloud client, the last against a local HTTP server rather than a request mock. The second needs `pytest-homeassistant-custom-component`, which pins the Home Assistant release and its Python version, so it does not run on a machine without them. It does not run on Windows either, with or without them: Home Assistant's runner imports `fcntl`. `mypy` does run there, given Home Assistant installed.
 
-The GitHub `Tests` workflow runs both suites on every push under one coverage run and **fails under 95%**, in total and for every module on its own (`tools/check_module_coverage.py`, so one thinly covered platform cannot hide behind the rest), then `mypy --strict`, the offline validator and `ruff`. The quality-scale status of every rule is in [`quality_scale.yaml`](custom_components/culligan_azure/quality_scale.yaml); the validator refuses a rule filed `done` whose mechanism is not in the tree.
+The GitHub `Tests` workflow runs both suites on every push under one coverage run and fails under 95%, in total and for every module on its own (`tools/check_module_coverage.py`, so one thinly covered platform cannot hide behind the rest), then `mypy --strict`, the offline validator and `ruff`. The quality-scale status of every rule is in [`quality_scale.yaml`](custom_components/culligan_azure/quality_scale.yaml); the validator refuses a rule filed `done` whose mechanism is not in the tree.
 
 ## Disclaimer
 
@@ -346,4 +350,4 @@ Not affiliated with, endorsed by, or supported by Culligan. "Culligan" is used o
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+GPL-3.0, see [LICENSE](LICENSE).

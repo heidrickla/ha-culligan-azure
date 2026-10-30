@@ -1,4 +1,4 @@
-# Names and descriptions live in strings.json (the translatable layout);
+# Names and descriptions live in translations/en.json (the translatable layout);
 # this file carries only structure and selectors.
 bypass_timed:
   fields:
