@@ -161,8 +161,6 @@ Counter resets from a firmware reflash are detected and skipped. History is stor
 
 ## Installation
 
-Requires Home Assistant 2026.8.0 or newer. A device belongs to one config entry from 2026.8, and a softener that leaves the account has its device removed with `async_remove_device`, the call that replaces the config-entry parameters removed in 2027.8. The brand images ship in-repo, which Home Assistant serves from 2026.3.
-
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=heidrickla&repository=ha-culligan-azure&category=integration)
 
 1. Press the button above, then Download in HACS, and restart Home Assistant when it asks.
@@ -177,6 +175,8 @@ The setup is one screen:
 Without the buttons: in HACS, search for Culligan (Azure), download it and restart; then Settings, Devices & services, Add integration, Culligan (Azure). Manual install: copy `custom_components/culligan_azure/` into your configuration's `custom_components` folder and restart.
 
 There is no discovery to wait for. The softener has no local interface, so nothing on the network announces it.
+
+Requires Home Assistant 2026.8.0 or newer. A device belongs to one config entry from 2026.8, and a softener that leaves the account has its device removed with `async_remove_device`, the call that replaces the config-entry parameters removed in 2027.8. The brand images ship in-repo, which Home Assistant serves from 2026.3.
 
 ### Installation parameters
 
