@@ -6,6 +6,12 @@ Home Assistant integration for Culligan water softeners on the Azure IoT backend
 
 What changed and when is in [CHANGELOG.md](CHANGELOG.md).
 
+## Screenshots
+
+![The Culligan account setup screen asking for the email and password](docs/images/setup.png)
+
+Setup asks for the Culligan Connect account's email and password.
+
 ## Why this exists
 
 Culligan moved newer softeners off Ayla Networks and onto an Azure IoT Hub. The established community integration targets Ayla and does not reach this hardware. Culligan publishes no API documentation for the replacement.
