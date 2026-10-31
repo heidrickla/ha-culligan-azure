@@ -4,7 +4,7 @@ The integration's icon/logo PNGs live in [`custom_components/culligan_azure/bran
 
 `icon.png` and `icon@2x.png` are also copied here at the repository root. HACS's publishing requirements ask for "a `brand` directory in your repository with at least an `icon.png` file", and the wording does not say whether that means the repo root or the integration directory. The integration copy is the one Home Assistant's Brands Proxy serves; this copy exists so the HACS requirement is unambiguously met either way. Regenerate both together.
 
-This directory otherwise holds only the tooling. The art is original: a stylized front view of a cabinet-style water softener (the tall brine cabinet with its valve head, control display and a water-drop motif), drawn programmatically by [generate.py](generate.py) (Pillow only, rendered at 4x and downsampled).
+This directory holds the approved sculpted water-drop icon at [icon-source.png](icon-source.png) and the logo tooling in [generate.py](generate.py). The wide logos depict the water softener and retain the plain-text wordmark.
 
 `dark_logo*.png` are the dark-theme variants (white wordmark). Those exist because a dark wordmark disappears against a dark theme, which is easy to miss when every preview is on a white page, so the contact sheet renders the icon and dark logo on a dark panel.
 

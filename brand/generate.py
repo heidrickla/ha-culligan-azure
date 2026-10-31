@@ -4,11 +4,8 @@
     python generate.py --final tank    # write the PNGs into the integration's
                                        # brand/ folder, ready to ship
 
-The art is original: a stylized front view of a cabinet-style water softener -
-the tall brine cabinet with its valve head, control display and a water-drop
-motif. It is deliberately NOT an imitation of Culligan's own logo or trade
-dress; the wordmark is plain text identifying which devices the integration
-supports (nominative use), not a reproduction of their branding.
+The icons use icon-source.png. The wide logos retain the stylized softener
+and plain-text wordmark.
 
 Home Assistant 2026.3+ serves these from custom_components/culligan_azure/brand/
 via the Brands Proxy API - local brand images take priority over the brands CDN
@@ -16,8 +13,7 @@ with no configuration, and home-assistant/brands stopped accepting
 custom-integration PRs in Feb 2026. On older HA versions the folder is inert, so
 shipping it is safe either way.
 
-Pillow only. Everything is drawn at 4x and downsampled, which is what keeps the
-curves and the thin highlight lines clean at 256px.
+Pillow scales the approved icon and draws the wide logos.
 """
 
 import os
@@ -329,7 +325,8 @@ def _fit(img, size):
 
 def write_final(variant):
     os.makedirs(SHIP, exist_ok=True)
-    icon = make_icon(variant)
+    with Image.open(os.path.join(HERE, "icon-source.png")) as original:
+        icon = original.convert("RGBA")
     logo = make_logo(variant, dark=False)
     dlogo = make_logo(variant, dark=True)
 
@@ -346,6 +343,8 @@ def write_final(variant):
         out = _fit(src, size)
         path = os.path.join(SHIP, name)
         out.save(path, "PNG", optimize=True)
+        if name.startswith("icon"):
+            out.save(os.path.join(HERE, name), "PNG", optimize=True)
         print(f"  {name:<18} {out.size[0]}x{out.size[1]}  {out.mode}")
 
 
@@ -357,7 +356,8 @@ def contact_sheet():
     exists to prevent.
     """
     os.makedirs(OUT, exist_ok=True)
-    icon = _fit(make_icon("tank"), (256, 256))
+    with Image.open(os.path.join(HERE, "icon-source.png")) as original:
+        icon = _fit(original.convert("RGBA"), (256, 256))
     logo = _fit(make_logo("tank"), (1003, 256))
     dlogo = _fit(make_logo("tank", dark=True), (1003, 256))
 
